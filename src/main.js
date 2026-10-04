@@ -610,10 +610,14 @@ async function installUpdate(info){
       if(expected!==actual)throw new Error(`Update verification failed: SHA-256 mismatch (expected ${expected}, got ${actual}).`);
     }
     if(process.platform==='win32'){
-      const child=spawn(target,['/S'],{detached:true,stdio:'ignore',windowsHide:true});
-      child.unref();
-      setTimeout(()=>{try{app.quit()}catch{}},400);
-      return {installed:true};
+      // Always hand the downloaded installer to the operating system using
+      // Electron's default file association. This is shared by the normal,
+      // Classic, and Expressive update buttons; do not invoke the installer
+      // with custom command-line switches or a silent/custom spawn.
+      const launchError=await shell.openPath(target);
+      if(launchError)throw new Error(`Unable to launch the update installer: ${launchError}`);
+      setTimeout(()=>{try{app.quit()}catch{}},800);
+      return {installed:true,launchedNormally:true};
     }
     if(process.platform==='linux'){
       const ext=path.extname(target).toLowerCase();

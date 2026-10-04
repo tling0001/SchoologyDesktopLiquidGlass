@@ -1333,6 +1333,17 @@ html[data-electron-platform="win32"][data-window-controls-overlay="true"] .toolb
 .drawerRoot[data-liquid-glass] .drawerItem,.drawerRoot[data-liquid-glass] .profileRow,.drawerRoot[data-liquid-glass] .courseSubItem{background:transparent!important;color:#fff!important;}
 .drawerRoot[data-liquid-glass] .drawerItem:hover,.drawerRoot[data-liquid-glass] .profileRow:hover,.drawerRoot[data-liquid-glass] .courseSubItem:hover{background:rgba(255,255,255,.10)!important;}
 .drawerRoot[data-liquid-glass] .drawerItem img,.drawerRoot[data-liquid-glass] .profileRow img{position:relative!important;z-index:2!important;}
+/* Drawer labels use black text over the light frosted glass surface. */
+.drawerRoot[data-liquid-glass],
+.drawerRoot[data-liquid-glass] .drawerItem,
+.drawerRoot[data-liquid-glass] .drawerItem .drawerLabel,
+.drawerRoot[data-liquid-glass] .profileRow,
+.drawerRoot[data-liquid-glass] .courseSubItem,
+.drawerRoot[data-liquid-glass] .drawerSubHeader,
+.drawerRoot[data-liquid-glass] .drawerSubHeader > span,
+.drawerRoot[data-liquid-glass] .drawerLoading{color:#000!important;}
+.drawerRoot[data-liquid-glass] .drawerBack,
+.drawerRoot[data-liquid-glass] .drawerHeaderAction{color:#000!important;}
 
 /* Remove the old opaque drawer backing; the supplied LiquidGlass canvas samples the shell. */
 .drawerRoot .drawerSurface{display:none!important;}
@@ -1372,3 +1383,24 @@ body.appDialogOpen::before{content:"";position:fixed;inset:0;background:rgba(0,0
 .nativeDashboardCourses > .nativeDashboardCourse,.courseAppList > .courseAppRow{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:26px!important;}
 .nativeDashboardCourses > .nativeDashboardCourse > canvas,.courseAppList > .courseAppRow > canvas{z-index:0!important;opacity:1!important;}
 .nativeDashboardCourses > .nativeDashboardCourse > :not(canvas),.courseAppList > .courseAppRow > :not(canvas){position:relative!important;z-index:1!important;}
+
+
+/* v110: The course dashboard card is itself the supplied LiquidGlass Frosted
+   Glass component. The scene is a sibling because LiquidGlass samples direct
+   siblings of each glass element; it is not a second visual card or CSS glass
+   overlay. The button contains the real dashboard content. */
+.nativeDashboardCourses{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))!important;gap:16px!important;padding:16px!important;align-content:start!important;}
+.nativeDashboardCourseShell{position:relative!important;min-width:0!important;min-height:174px!important;height:174px!important;border-radius:26px!important;overflow:hidden!important;isolation:isolate!important;background:#e7ebee!important;}
+.nativeDashboardCourseScene{position:absolute!important;inset:0!important;z-index:0!important;overflow:hidden!important;background:#e7ebee!important;}
+.nativeDashboardCourseScene>img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;display:block!important;}
+.nativeDashboardCourseScene>.dashboardCourseFallback{position:absolute!important;inset:0!important;display:flex!important;align-items:center!important;justify-content:center!important;background:#e7ebee!important;color:#002137!important;font-size:42px!important;font-weight:600!important;}
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;min-height:174px!important;margin:0!important;padding:0!important;display:flex!important;flex-direction:column!important;justify-content:flex-end!important;align-items:stretch!important;background:transparent!important;border:0!important;border-radius:26px!important;overflow:hidden!important;box-shadow:none!important;text-align:left!important;color:#22303e!important;}
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]>canvas{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;z-index:0!important;opacity:1!important;pointer-events:none!important;border-radius:26px!important;}
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]>.nativeDashboardCourseInfo{position:relative!important;z-index:1!important;margin:0!important;padding:13px 14px 14px!important;background:rgba(255,255,255,.46)!important;border-top:1px solid rgba(255,255,255,.42)!important;backdrop-filter:none!important;min-height:66px!important;box-sizing:border-box!important;}
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass] .nativeDashboardCourseInfo>b{color:#22303e!important;}
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass] .nativeDashboardCoursePeriod{color:#56636c!important;}
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass] .nativeDashboardCourseInfo>small{color:#69757d!important;}
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]:hover{background:transparent!important;box-shadow:none!important;}
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]:focus-visible{outline:2px solid rgba(255,255,255,.8)!important;outline-offset:2px!important;}
+/* Older dashboard rules must not reintroduce the opaque white card/image. */
+.nativeDashboardCourseShell .nativeDashboardCourseImage{display:none!important;}
