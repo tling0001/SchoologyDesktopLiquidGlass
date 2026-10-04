@@ -1,4 +1,5 @@
 const {app,BrowserWindow,session,ipcMain,shell,dialog}=require('electron');
+const {spawn}=require('child_process');
 const path=require('path');
 const crypto=require('crypto');
 const fs=require('fs');
@@ -592,6 +593,45 @@ function fetchJson(url){return new Promise((resolve,reject)=>{const u=new URL(ur
 async function sha256File(file){return await new Promise((resolve,reject)=>{const h=crypto.createHash('sha256'),s=fs.createReadStream(file);s.on('data',d=>h.update(d));s.on('error',reject);s.on('end',()=>resolve(h.digest('hex')))});}
 function downloadUrl(url,target,totalHint=0){return new Promise((resolve,reject)=>{const get=(href,depth=0)=>{if(depth>8)return reject(new Error('Too many update redirects.'));const u=new URL(href);const req=https.request({hostname:u.hostname,path:u.pathname+u.search,method:'GET',headers:{'User-Agent':'Schoology-Desktop-Port-Updater','Accept':'application/octet-stream'}},res=>{const code=res.statusCode||0;if([301,302,303,307,308].includes(code)&&res.headers.location){res.resume();return get(new URL(res.headers.location,u).toString(),depth+1)}if(code<200||code>=300){res.resume();return reject(new Error(`Update download failed (HTTP ${code})`))}const headerTotal=Number(res.headers['content-length']||0);const expected=headerTotal||Number(totalHint||0);let received=0;const sendProgress=done=>{try{if(win&&!win.isDestroyed()){const percent=expected?Math.min(100,Math.round(received*100/expected)):null;win.webContents.send('update-download-progress',{received,total:expected||received,percent,done:!!done})}}catch{}};sendProgress(false);const out=fs.createWriteStream(target);res.on('data',d=>{received+=d.length;sendProgress(false)});res.pipe(out);out.on('finish',()=>out.close(()=>{if(expected&&received!==expected){try{fs.unlinkSync(target)}catch{};return reject(new Error(`Update download was incomplete (${received}/${expected} bytes).`))}sendProgress(true);resolve(target)}));out.on('error',e=>{try{out.close()}catch{};try{fs.unlinkSync(target)}catch{};reject(e)})});req.setTimeout(10*60*1000,()=>req.destroy(new Error('Update download timed out')));req.on('error',e=>{try{fs.unlinkSync(target)}catch{};reject(e)});req.end()};get(url)})}
 
+async function installUpdate(info){
+  const u=info&&typeof info==='object'?info:{};
+  if(!u.url)throw new Error('The update did not provide a download URL.');
+  const safe=String(u.assetName||'Schoology-update').replace(/[^a-zA-Z0-9._-]/g,'_');
+  const target=path.join(app.getPath('temp'),`schoology-update-${Date.now()}-${safe}`);
+  try{
+    await downloadUrl(String(u.url),target,Number(u.size||0));
+    if(!fs.existsSync(target))throw new Error('The update download could not be found.');
+    const stat=fs.statSync(target);
+    if(u.size&&Number(u.size)!==stat.size)throw new Error(`Update verification failed: downloaded ${stat.size} bytes but GitHub reported ${u.size}.`);
+    if(u.digest){
+      const expected=String(u.digest).replace(/^sha256:/i,'').toLowerCase();
+      const actual=(await sha256File(target)).toLowerCase();
+      if(expected!==actual)throw new Error(`Update verification failed: SHA-256 mismatch (expected ${expected}, got ${actual}).`);
+    }
+    if(process.platform==='win32'){
+      const child=spawn(target,['/S'],{detached:true,stdio:'ignore',windowsHide:true});
+      child.unref();
+      setTimeout(()=>{try{app.quit()}catch{}},400);
+      return {installed:true};
+    }
+    if(process.platform==='linux'){
+      const ext=path.extname(target).toLowerCase();
+      if(ext==='.deb'){
+        await new Promise((resolve,reject)=>{const child=spawn('pkexec',['dpkg','-i',target],{stdio:'ignore'});child.once('error',reject);child.once('exit',(code,signal)=>code===0?resolve():reject(new Error(`Package installer exited with code ${code??'unknown'}${signal?` (${signal})`:''}.`)));});
+        app.relaunch();app.exit(0);return {installed:true};
+      }
+      if(ext==='.rpm'){
+        await new Promise((resolve,reject)=>{const child=spawn('pkexec',['rpm','-U',target],{stdio:'ignore'});child.once('error',reject);child.once('exit',(code,signal)=>code===0?resolve():reject(new Error(`Package installer exited with code ${code??'unknown'}${signal?` (${signal})`:''}.`)));});
+        app.relaunch();app.exit(0);return {installed:true};
+      }
+    }
+    if(process.platform==='darwin')throw new Error('macOS updates require opening the downloaded DMG manually; automatic installation is not supported by this updater.');
+    throw new Error(`Automatic installation is not supported for ${process.platform}.`);
+  }catch(e){
+    try{if(fs.existsSync(target))fs.unlinkSync(target)}catch{}
+    throw e;
+  }
+}
 function updateAssetForPlatform(release){const assets=Array.isArray(release?.assets)?release.assets:[];const arch=process.arch;let wanted=[];if(process.platform==='win32')wanted=['Setup-x64.exe'];else if(process.platform==='darwin')wanted=[arch==='arm64'?'arm64.dmg':'x64.dmg'];else if(process.platform==='linux')wanted=[fs.existsSync('/usr/bin/rpm')&&!fs.existsSync('/usr/bin/dpkg')?'x86_64.rpm':'amd64.deb'];return assets.find(a=>wanted.some(s=>String(a.name||'').endsWith(s)))||null}
 async function getLatestRepoUpdate(repo,{compareLocal=false}={}){
   if(!require('electron').net.isOnline())throw new Error('Computer is offline.');

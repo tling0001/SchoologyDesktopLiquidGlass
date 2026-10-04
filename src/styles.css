@@ -1252,3 +1252,68 @@ html[data-electron-platform="win32"][data-window-controls-overlay="true"] .toolb
 .appDialog[data-liquid-glass] > canvas{z-index:0!important;opacity:1!important;pointer-events:none!important;}
 .appDialog[data-liquid-glass] > :not(canvas){position:relative!important;z-index:1!important;}
 .appDialog[data-liquid-glass] .appDialogActions button{background:rgba(255,255,255,.20)!important;border:1px solid rgba(255,255,255,.30)!important;border-radius:999px!important;}
+
+
+/* v107: use the supplied @ybouane/liquidglass package as the actual surface.
+   Frosted settings/dashboard/course-app surfaces use the package's documented
+   blurAmount: 0.25 treatment and 26px component corners. */
+.toolbar[data-liquid-glass-root]{background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important;}
+.toolbar[data-liquid-glass-root] .toolbarSurface{background:#002137!important;}
+.toolbar[data-liquid-glass-root] > .toolbarGlassButton{background:transparent!important;border:0!important;border-radius:26px!important;box-shadow:none!important;overflow:visible!important;}
+.toolbar[data-liquid-glass-root] > .toolbarGlassButton > canvas{opacity:1!important;}
+.toolbar[data-liquid-glass-root] > .toolbarGlassButton:hover,
+.toolbar[data-liquid-glass-root] > .toolbarGlassButton:focus,
+.toolbar[data-liquid-glass-root] > .toolbarGlassButton:active{background:transparent!important;border:0!important;box-shadow:none!important;}
+.toolbar[data-liquid-glass-root] > .toolbarGlassButton[hidden]{display:none!important;}
+.toolbar[data-liquid-glass-root] > .toolbarTitle{z-index:4!important;}
+
+/* The drawer itself is the glass element. Its scrollable child is the content
+   viewport, so LiquidGlass never has to be clipped by overflow:auto. */
+.drawerRoot{position:fixed!important;left:0!important;top:0!important;bottom:0!important;width:min(340px,84vw)!important;z-index:31!important;pointer-events:none!important;overflow:visible!important;}
+.drawerRoot .drawerSurface{position:absolute!important;inset:0!important;background:#002137!important;pointer-events:none!important;}
+.drawerRoot > .drawer{position:absolute!important;left:0!important;top:0!important;bottom:0!important;width:100%!important;height:100%!important;transform:translateX(-102%)!important;transition:transform .28s cubic-bezier(.2,.8,.2,1),box-shadow .28s ease!important;background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important;pointer-events:auto!important;border-radius:0!important;}
+.drawerRoot > .drawer.open{transform:translateX(0)!important;}
+.drawerRoot > .drawer > .drawerScroll{position:absolute!important;inset:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:auto!important;}
+.drawerRoot > .drawer > canvas{opacity:1!important;z-index:-1!important;pointer-events:none!important;}
+.drawerRoot .drawerItem,.drawerRoot .profileRow,.drawerRoot .courseSubItem{background:transparent!important;}
+.drawerRoot .drawerItem:hover,.drawerRoot .profileRow:hover,.drawerRoot .courseSubItem:hover{background:rgba(255,255,255,.10)!important;}
+
+/* Settings: the group is the actual LiquidGlass panel, while rows are content
+   inside it rather than opaque cards placed over a fake glass layer. */
+.settingsPage[data-liquid-glass-root]{position:relative!important;background:#f4f5f5!important;overflow-y:auto!important;padding:16px 14px 32px!important;}
+.settingsPage[data-liquid-glass-root] .settingsGlassSurface{position:absolute!important;inset:0!important;background:#f4f5f5!important;z-index:0!important;pointer-events:none!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass]{position:relative!important;z-index:1!important;background:transparent!important;border:0!important;border-radius:26px!important;overflow:visible!important;box-shadow:none!important;margin:0 0 14px!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass] > canvas{z-index:-1!important;opacity:1!important;pointer-events:none!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass] > :not(canvas){position:relative!important;z-index:1!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass] h2{background:transparent!important;margin:0!important;padding:16px 18px 10px!important;border:0!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass] .settingRow{background:rgba(255,255,255,.12)!important;border-top:1px solid rgba(255,255,255,.18)!important;border-left:0!important;border-right:0!important;color:#263238!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass] .settingRow:first-of-type{border-top:0!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass] .settingRow:last-child{border-bottom-left-radius:26px!important;border-bottom-right-radius:26px!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass] .settingRow:first-of-type{border-top-left-radius:26px!important;border-top-right-radius:26px!important;}
+.settingsPage[data-liquid-glass-root] .settingsVersion{position:relative!important;z-index:1!important;}
+
+/* Dashboard/course-app rows are actual direct-child glass buttons. */
+.nativeDashboardCourses[data-liquid-glass-root]{position:relative!important;isolation:isolate!important;}
+.nativeDashboardCourses .dashboardGlassSurface,.courseAppList .courseAppGlassSurface{position:absolute!important;inset:0!important;background:#f5f6f7!important;z-index:0!important;pointer-events:none!important;}
+.nativeDashboardCourses > .nativeDashboardCourse[data-liquid-glass],
+.courseAppList > .courseAppRow[data-liquid-glass]{position:relative!important;z-index:1!important;background:transparent!important;border:0!important;border-radius:26px!important;overflow:visible!important;box-shadow:none!important;}
+.nativeDashboardCourses > .nativeDashboardCourse[data-liquid-glass] > canvas,
+.courseAppList > .courseAppRow[data-liquid-glass] > canvas{z-index:-1!important;opacity:1!important;pointer-events:none!important;}
+.nativeDashboardCourses > .nativeDashboardCourse[data-liquid-glass] > :not(canvas),
+.courseAppList > .courseAppRow[data-liquid-glass] > :not(canvas){position:relative!important;z-index:1!important;}
+.nativeDashboardCourses > .nativeDashboardCourse[data-liquid-glass]:hover,
+.courseAppList > .courseAppRow[data-liquid-glass]:hover{background:transparent!important;}
+
+/* True frosted dialog: no white panel beneath the shader, no CSS square, and
+   the library's own rounded mask supplies the shape. */
+.appDialogOverlay{position:fixed!important;inset:0!important;z-index:1000!important;background:rgba(0,0,0,.22)!important;display:none!important;pointer-events:none!important;padding:0!important;}
+.appDialogOverlay.open{display:block!important;}
+.appDialog[data-liquid-glass]{position:fixed!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:min(440px,calc(100vw - 48px))!important;max-height:calc(100vh - 48px)!important;background:transparent!important;border:0!important;border-radius:26px!important;box-shadow:none!important;overflow:visible!important;z-index:1002!important;color:#263238!important;padding:22px!important;}
+.appDialog[data-liquid-glass] > canvas{z-index:-1!important;opacity:1!important;pointer-events:none!important;}
+.appDialog[data-liquid-glass] > :not(canvas){position:relative!important;z-index:1!important;}
+.appDialog[data-liquid-glass] .appDialogActions button{background:rgba(255,255,255,.20)!important;border:1px solid rgba(255,255,255,.30)!important;border-radius:26px!important;}
+/* v107 drawer root transition: move the complete glass component, including its
+   captured surface, so the closed drawer cannot leave a dark rectangle behind. */
+.drawerRoot{transform:translateX(-102%)!important;transition:transform .28s cubic-bezier(.2,.8,.2,1)!important;}
+.drawerRoot:has(.drawer.open){transform:translateX(0)!important;}
+.drawerRoot .drawer.noSlide{transition:none!important;}
