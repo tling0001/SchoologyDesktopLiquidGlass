@@ -1,5 +1,8 @@
 const app=document.getElementById('app');
 let liquidGlassInstances=[];
+let liquidGlassListeners=[];
+let bodyLiquidGlassInstance=null;
+let bodyLiquidGlassCleanup=null;
 let liquidGlassGeneration=0;
 let liquidGlassImportPromise=null;
 function loadLiquidGlass(){
@@ -8,8 +11,25 @@ function loadLiquidGlass(){
 }
 function destroyLiquidGlass(){
   liquidGlassGeneration++;
+  for(const off of liquidGlassListeners){try{off()}catch{}}
+  liquidGlassListeners=[];
+  bodyLiquidGlassInstance=null;
+  bodyLiquidGlassCleanup=null;
   for(const instance of liquidGlassInstances){try{instance.destroy()}catch{}}
   liquidGlassInstances=[];
+}
+function wireLiquidGlassInvalidation(instance,root){
+  const mark=()=>{try{instance.markChanged()}catch{}};
+  const targets=[window,root];
+  const cleanups=[];
+  for(const target of targets){
+    target.addEventListener('scroll',mark,{passive:true,capture:true});
+    target.addEventListener('resize',mark,{passive:true});
+    cleanups.push(()=>{target.removeEventListener('scroll',mark,{capture:true});target.removeEventListener('resize',mark)});
+  }
+  const cleanup=()=>cleanups.forEach(fn=>{try{fn()}catch{}});
+  liquidGlassListeners.push(cleanup);
+  return cleanup;
 }
 async function refreshLiquidGlassRoot(root){
   if(!root)return;
@@ -22,6 +42,8 @@ async function refreshLiquidGlassRoot(root){
     const instance=await LiquidGlass.init({root,glassElements});
     if(generation!==liquidGlassGeneration||!document.documentElement.contains(root)){instance.destroy();return;}
     liquidGlassInstances.push(instance);
+    const cleanup=wireLiquidGlassInvalidation(instance,root);
+    if(root===document.body){bodyLiquidGlassInstance=instance;bodyLiquidGlassCleanup=cleanup;}
   }catch(e){console.warn('Schoology LiquidGlass initialization failed:',e);}
 }
 async function refreshLiquidGlass(){
@@ -44,27 +66,59 @@ let loadTabGeneration=0;
 let state={screen:'login',school:null,schools:[],q:'',loading:false,error:'',auth:null,user:null,tab:'home',homeTab:'recent',searchToken:0,drawerPage:null,message:null,messageTab:'inbox',messageFolder:'inbox',messageThread:null,composeMessage:false,selectedCourse:null,mobileMe:null,courseDashboardEnabled:false,preferredHomepage:'recent',toolbarTitle:'Home',embeddedReturn:null,embeddedCanOpenExternal:false,homeUpcomingReturn:false,assignmentTab:'info',assignmentCanSubmit:false,assignmentIsTeacher:false,assignmentSubpage:null,submissionMenu:false,assignmentAllowComments:false,assignmentLandscape:false,folderId:0,folderStack:[],courseView:null,activityUsers:{},activityComments:null,currentFolderId:0,currentGroup:null,profileUser:null,profileTab:'updates',groupTab:'updates',resourceCollection:null,windowChromeOverlay:false,homeCreateMenu:false,calendarDate:null,calendarSelectedDate:null,calendarCanCreate:false,calendarEvents:[],calendarEventsMonth:'',calendarTab:'calendar',calendarUpcomingEvents:null,groupJoinOpen:false,embeddedTheme:'',profileReturn:null};
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function alert(message){showAppDialog('Schoology',String(message));}
+function bodyLiquidGlassInstancesRemove(){
+  if(bodyLiquidGlassInstance){liquidGlassInstances=liquidGlassInstances.filter(x=>x!==bodyLiquidGlassInstance);}
+  bodyLiquidGlassInstance=null;bodyLiquidGlassCleanup=null;
+}
 function closeAppDialog(){
+  if(bodyLiquidGlassInstance){try{bodyLiquidGlassCleanup?.();bodyLiquidGlassInstance.destroy()}catch{};bodyLiquidGlassInstancesRemove();}
   const overlay=document.getElementById('appDialog');
   const glass=document.getElementById('appDialogGlass');
-  overlay?.classList.remove('open');
-  glass?.classList.remove('open');
-  setTimeout(()=>{overlay?.remove();glass?.remove();},180);
+  const buttons=[...document.querySelectorAll('.appDialogActionGlass')];
+  document.body.classList.remove('appDialogOpen');
+  overlay?.remove();
+  glass?.remove();
+  buttons.forEach(b=>b.remove());
 }
-function showAppDialog(title,message,actions=[{label:'OK',action:null}]){
+async function positionDialogButtons(){
+  const glass=document.getElementById('appDialogGlass');
+  if(!glass)return;
+  const r=glass.getBoundingClientRect();
+  const buttons=[...document.querySelectorAll('.appDialogActionGlass')];
+  const gap=8;
+  const total=buttons.reduce((n,b)=>n+b.offsetWidth,0)+Math.max(0,buttons.length-1)*gap;
+  let left=r.left+Math.max(18,(r.width-total)/2);
+  const top=r.bottom-54;
+  buttons.forEach(b=>{b.style.left=`${left}px`;b.style.top=`${top}px`;left+=b.offsetWidth+gap;});
+}
+async function showAppDialog(title,message,actions=[{label:'OK',action:null}]){
   closeAppDialog();
+  document.body.classList.add('appDialogOpen');
   const overlay=document.createElement('div');overlay.id='appDialog';overlay.className='appDialogOverlay open';document.body.appendChild(overlay);
   const glass=document.createElement('div');glass.id='appDialogGlass';glass.className='appDialog';glass.setAttribute('data-liquid-glass','');glass.setAttribute('role','dialog');glass.setAttribute('aria-modal','true');
   glass.dataset.config=JSON.stringify({button:false,cornerRadius:26,zRadius:40,blurAmount:0.25,refraction:0.69,chromAberration:0.05,edgeHighlight:0.05,shadowOpacity:0.30,opacity:1,tintStrength:0.04,brightness:0});
-  glass.innerHTML=`<h2>${esc(title)}</h2><div class="appDialogMessage">${esc(message)}</div><div class="appDialogActions">${actions.map((a,i)=>`<button data-dialog-action="${i}">${esc(a.label)}</button>`).join('')}</div>`;
+  glass.innerHTML=`<h2>${esc(title)}</h2><div class="appDialogMessage">${esc(message)}</div>`;
   document.body.appendChild(glass);
-  refreshLiquidGlassRoot(document.body);
-  glass.querySelectorAll('[data-dialog-action]').forEach((b,i)=>b.onclick=async()=>{const fn=actions[i]?.action;closeAppDialog();if(fn)await fn()});
+  const buttonEls=actions.map((a,i)=>{
+    const b=document.createElement('button');
+    b.className='appDialogActionGlass';b.setAttribute('data-liquid-glass','');b.dataset.config=JSON.stringify({button:true,cornerRadius:26,zRadius:40,blurAmount:0.25,refraction:0.69,chromAberration:0.05,edgeHighlight:0.05,shadowOpacity:0.30,opacity:1,tintStrength:0.04,brightness:0});b.textContent=a.label;
+    document.body.appendChild(b);
+    b.onclick=async()=>{const fn=actions[i]?.action;closeAppDialog();if(fn)await fn()};
+    return b;
+  });
+  await refreshLiquidGlassRoot(document.body);
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  if(!document.body.contains(glass))return glass;
+  await positionDialogButtons();
+  window.addEventListener('resize',positionDialogButtons);
+  liquidGlassListeners.push(()=>window.removeEventListener('resize',positionDialogButtons));
+  glass.classList.add('ready');buttonEls.forEach(b=>b.classList.add('ready'));
   return glass;
 }
+
 function showUpdateDialog(u){
   showAppDialog('Update available',`Schoology Desktop Port v${u.version} is available. The update will download only after you choose Install update.`,[{label:'Later',action:null},{label:'Install update',action:async()=>{
-    const dlg=showAppDialog('Downloading update','Downloading…',[]);
+    const dlg=await showAppDialog('Downloading update','Downloading…',[]);
     const msg=dlg?.querySelector('.appDialogMessage');
     if(msg)msg.innerHTML='<div class="updateDownloadProgressWrap"><div class="updateDownloadProgressTrack"><div id="updateDownloadProgressBar" class="updateDownloadProgressBar" style="width:0%"></div></div><div id="updateDownloadProgressText" class="updateDownloadProgressText">Downloading…</div></div>';
     const off=window.schoology?.onUpdateDownloadProgress?.(d=>{const bar=document.getElementById('updateDownloadProgressBar'),txt=document.getElementById('updateDownloadProgressText');if(bar&&d?.percent!=null)bar.style.width=d.percent+'%';if(txt)txt.textContent=d?.total?`Downloading… ${d.percent||0}%`:'Downloading…';});
@@ -73,7 +127,7 @@ function showUpdateDialog(u){
 }
 function showClassicUpdateDialog(u){
   showAppDialog('Try Schoology Classic',`The latest Schoology Classic Desktop Port release (${esc(u.versionLabel||u.tag||'latest')}) will download and install.`,[{label:'Cancel',action:null},{label:'Install classic',action:async()=>{
-    const dlg=showAppDialog('Downloading Schoology Classic','Downloading…',[]);
+    const dlg=await showAppDialog('Downloading Schoology Classic','Downloading…',[]);
     const msg=dlg?.querySelector('.appDialogMessage');
     if(msg)msg.innerHTML='<div class="updateDownloadProgressWrap"><div class="updateDownloadProgressTrack"><div id="updateDownloadProgressBar" class="updateDownloadProgressBar" style="width:0%"></div></div><div id="updateDownloadProgressText" class="updateDownloadProgressText">Downloading…</div></div>';
     const off=window.schoology?.onUpdateDownloadProgress?.(d=>{const bar=document.getElementById('updateDownloadProgressBar'),txt=document.getElementById('updateDownloadProgressText');if(bar&&d?.percent!=null)bar.style.width=d.percent+'%';if(txt)txt.textContent=d?.total?`Downloading… ${d.percent||0}%`:'Downloading…'});
@@ -83,7 +137,7 @@ function showClassicUpdateDialog(u){
 
 function showExpressiveUpdateDialog(u){
   showAppDialog('Try Schoology Expressive',`The latest Schoology Expressive release (${esc(u.versionLabel||u.tag||'latest')}) will download and install.`,[{label:'Cancel',action:null},{label:'Install Expressive',action:async()=>{
-    const dlg=showAppDialog('Downloading Schoology Expressive','Downloading…',[]);
+    const dlg=await showAppDialog('Downloading Schoology Expressive','Downloading…',[]);
     const msg=dlg?.querySelector('.appDialogMessage');
     if(msg)msg.innerHTML='<div class="updateDownloadProgressWrap"><div class="updateDownloadProgressTrack"><div id="updateDownloadProgressBar" class="updateDownloadProgressBar" style="width:0%"></div></div><div id="updateDownloadProgressText" class="updateDownloadProgressText">Downloading…</div></div>';
     const off=window.schoology?.onUpdateDownloadProgress?.(d=>{const bar=document.getElementById('updateDownloadProgressBar'),txt=document.getElementById('updateDownloadProgressText');if(bar&&d?.percent!=null)bar.style.width=d.percent+'%';if(txt)txt.textContent=d?.total?`Downloading… ${d.percent||0}%`:'Downloading…'});
@@ -152,7 +206,7 @@ function shell(){
  return `<div class="shell">
  <header class="toolbar" data-liquid-glass-root><div class="toolbarSurface" aria-hidden="true"></div><button id="menuButton" class="iconButton toolbarGlassButton" data-liquid-glass data-config='{"button":true,"cornerRadius":26,"zRadius":40,"blurAmount":0.25,"refraction":0.69,"chromAberration":0.05,"edgeHighlight":0.05,"shadowOpacity":0.30,"opacity":1,"tintStrength":0.0,"brightness":0}' aria-label="Navigation menu">${menuImg}</button><button id="toolbarBack" class="iconButton toolbarGlassButton" data-liquid-glass data-config='{"button":true,"cornerRadius":26,"zRadius":40,"blurAmount":0.25,"refraction":0.69,"chromAberration":0.05,"edgeHighlight":0.05,"shadowOpacity":0.30,"opacity":1,"tintStrength":0.0,"brightness":0}' aria-label="Back" hidden>‹</button><span class="toolbarTitle">${esc(state.toolbarTitle||'Home')}</span><button id="toolbarAction1" class="iconButton toolbarGlassButton toolbarActionButton" data-liquid-glass data-config='{"button":true,"cornerRadius":26,"zRadius":40,"blurAmount":0.25,"refraction":0.69,"chromAberration":0.05,"edgeHighlight":0.05,"shadowOpacity":0.30,"opacity":1,"tintStrength":0.0,"brightness":0}' aria-hidden="true" tabindex="-1" hidden></button><button id="toolbarAction2" class="iconButton toolbarGlassButton toolbarActionButton" data-liquid-glass data-config='{"button":true,"cornerRadius":26,"zRadius":40,"blurAmount":0.25,"refraction":0.69,"chromAberration":0.05,"edgeHighlight":0.05,"shadowOpacity":0.30,"opacity":1,"tintStrength":0.0,"brightness":0}' aria-hidden="true" tabindex="-1" hidden></button></header>
  <main id="content"><div class="loading"><img class="androidInlineSpinner" src="../assets/android_loading_spinner_72.gif" alt=""><span>Loading…</span></div></main>
- <div id="drawerShade" class="drawerShade ${drawerPage?'submenuShade':''}"></div><div class="drawerRoot" data-liquid-glass-root><div class="drawerSurface" aria-hidden="true"></div><aside id="drawer" class="drawer ${drawerPage?'drawerSubMode':''}" data-liquid-glass data-config='{"cornerRadius":0,"zRadius":40,"blurAmount":0.25,"refraction":0.69,"chromAberration":0.05,"edgeHighlight":0.05,"shadowOpacity":0.30,"opacity":1,"tintStrength":0.0,"brightness":0}'><div class="drawerScroll">${drawerPage||`<button id="drawerProfile" class="profileRow" aria-label="Open profile"><span class="profileAvatarCircle"><img data-profile-drawer-image="1" src="../assets/icons/profile_default_website.png" alt=""></span><span>${esc(state.auth?.user?.name_display||state.auth?.user?.name||'Profile')}</span></button><div class="drawerList">${drawerList}</div>`}</div></aside></div>
+ <div id="drawerShade" class="drawerShade ${drawerPage?'submenuShade':''}"></div><div id="drawer" class="drawerRoot" data-liquid-glass data-config='{"cornerRadius":26,"zRadius":40,"blurAmount":0.25,"refraction":0.69,"chromAberration":0.05,"edgeHighlight":0.05,"shadowOpacity":0.30,"opacity":1,"tintStrength":0.04,"brightness":0}'><div class="drawerScroll">${drawerPage||`<button id="drawerProfile" class="profileRow" aria-label="Open profile"><span class="profileAvatarCircle"><img data-profile-drawer-image="1" src="../assets/icons/profile_default_website.png" alt=""></span><span>${esc(state.auth?.user?.name_display||state.auth?.user?.name||'Profile')}</span></button><div class="drawerList">${drawerList}</div>`}</div></div>
  </div>`;
 }
 function setDownloadButtonState(button,active,label='Downloading…'){
@@ -337,7 +391,7 @@ function bind(){
   document.querySelectorAll('[data-drawer]').forEach(b=>b.addEventListener('click',async()=>{
     const id=b.dataset.drawer;
     if(id==='courses'||id==='groups'||id==='grades'){
-      state.drawerPage=id;const drawer=document.getElementById('drawer');if(drawer){drawer.innerHTML=`<div class="drawerSub"><div class="drawerSubHeader"><button id="drawerBack" class="drawerBack">‹</button><span>${id==='grades'?'Grades':id==='groups'?'Groups':'Courses'}</span>${id==='courses'?'<button id="joinCourse" class="drawerHeaderAction" style="display:none">+</button>':id==='groups'?'<button id="joinGroup" class="drawerHeaderAction" style="display:none">+</button>':'<span class="drawerHeaderSpacer"></span>'}</div><div id="courseSubList" class="courseSubList"><div class="drawerLoading"><img class="androidInlineSpinner" src="../assets/android_loading_spinner_72.gif" alt=""><span>Loading ${id==='grades'?'grades':id==='groups'?'groups':'courses'}…</span></div></div></div>`;drawer.classList.add('open');document.getElementById('drawerShade')?.classList.add('open')}bind();loadCourseSubmenu();return;
+      state.drawerPage=id;const drawer=document.getElementById('drawer');if(drawer){drawer.innerHTML=`<div class="drawerScroll"><div class="drawerSub"><div class="drawerSubHeader"><button id="drawerBack" class="drawerBack">‹</button><span>${id==='grades'?'Grades':id==='groups'?'Groups':'Courses'}</span>${id==='courses'?'<button id="joinCourse" class="drawerHeaderAction" style="display:none">+</button>':id==='groups'?'<button id="joinGroup" class="drawerHeaderAction" style="display:none">+</button>':'<span class="drawerHeaderSpacer"></span>'}</div><div id="courseSubList" class="courseSubList"><div class="drawerLoading"><img class="androidInlineSpinner" src="../assets/android_loading_spinner_72.gif" alt=""><span>Loading ${id==='grades'?'grades':id==='groups'?'groups':'courses'}…</span></div></div></div></div>`;drawer.classList.add('open');document.getElementById('drawerShade')?.classList.add('open')}bind();destroyLiquidGlass();refreshLiquidGlass();loadCourseSubmenu();return;
     }
     closeDrawerThen(async()=>{
       if(id==='logout'){await A.logout();state.auth=null;state.school=null;state.tab='home';state.screen='login';render();return}
@@ -897,10 +951,10 @@ function showAssignmentAttachmentChooser(){
     try{
       const v=state.assignmentView;if(!v||!state.assignmentCanSubmit)throw new Error('This assignment is no longer available for submission.');
       if(selected.type==='resource'){
-        const dlg=showAppDialog('Submitting resource','Submitting…',[]);
+        const dlg=await showAppDialog('Submitting resource','Submitting…',[]);
         try{await A.submitAssignmentResource({sectionId:v.sectionId,assignmentId:v.assignmentId,resourceId:selected.resourceId});dlg?.classList.remove('open');close();await openAssignmentSubmissions(v.sectionId,v.assignmentId,state.assignmentData||{},false)}catch(e){dlg?.classList.remove('open');throw e}
       }else{
-        const dlg=showAppDialog('Uploading submission','Uploading…',[]);const msg=dlg?.querySelector('.appDialogMessage');
+        const dlg=await showAppDialog('Uploading submission','Uploading…',[]);const msg=dlg?.querySelector('.appDialogMessage');
         if(msg)msg.innerHTML='<div class="fileUploadProgressWrap"><div class="fileUploadProgressTrack"><div id="fileUploadProgressBar" class="fileUploadProgressBar" style="width:0%"></div></div><div id="fileUploadProgressText" class="fileUploadProgressText">Uploading… 0%</div></div>';
         const off=A.onFileUploadProgress?.(d=>{const bar=document.getElementById('fileUploadProgressBar'),txt=document.getElementById('fileUploadProgressText');if(bar&&d?.percent!=null)bar.style.width=Math.max(0,Math.min(100,d.percent))+'%';if(txt)txt.textContent=d?.phase?`${d.phase}${d.percent!=null?` ${d.percent}%`:''}`:`Uploading… ${d?.percent??0}%`});
         try{await A.submitAssignmentFile({sectionId:v.sectionId,assignmentId:v.assignmentId,filePath:selected.filePath,filename:selected.filename,mime:selected.mime});off?.();dlg?.classList.remove('open');close();await openAssignmentSubmissions(v.sectionId,v.assignmentId,state.assignmentData||{},false)}catch(e){off?.();dlg?.classList.remove('open');throw e}
@@ -1178,9 +1232,10 @@ async function loadCourseApps(course,targetEl){
 async function loadCourseUpcomingPane(course){
  const el=document.getElementById('courseUpcomingContent');if(!el)return;
  const sid=course.id||course.section_id||course.sectionId;if(!sid)return;
- const x=await A.api({path:`sections/${sid}/events`,params:{start_date:formatApiDate(new Date()),limit:20}});
- let arr=x.event||x.events||[];
- arr=arr.filter(e=>['assignment','assessment','assessment_v2','managed_assessment','discussion','external_tool','event'].includes(String(e.type||'')));
+ const x=await A.api({path:`sections/${sid}/events`,params:{start_date:formatApiDate(new Date()),start:0,limit:20}});
+ let arr=x.event||x.events||x.data?.event||x.data?.events||[];
+ if(!Array.isArray(arr))arr=arr?.event||arr?.list||arr?.items||[];
+ arr=arr.filter(Boolean).filter(e=>{const t=String(e.type||e.event_type||e.eventType||'').toLowerCase();return !t||['assignment','assessment','assessment_v2','managed_assessment','discussion','external_tool','event','quiz'].includes(t)});
  el.innerHTML=renderUpcoming(arr);
  document.querySelectorAll('[data-course-upcoming-id]').forEach(b=>b.onclick=async()=>{const e=arr.find(v=>String(v.id||'')===String(b.dataset.courseUpcomingId));if(!e)return;const type=String(e.type||'').toLowerCase();const aid=e.assignment_id??e.assignmentId??e.assignment?.id;const esid=e.section_id??e.sectionId??sid;if(type==='assignment'&&aid){openWithPressTransition(b,()=>showAssignment(esid,aid));return}if(['assessment','assessment_v2','managed_assessment','quiz'].includes(type)){const id=aid??e.id;if(id){openWithPressTransition(b,async()=>{await A.prepareWebSession();showEmbeddedWeb(`https://app.schoology.com/assignment/${id}`,e.title||'Quiz',{allowBrowser:false,quiz:true,assessment:true})});return}}if(e.web_url||e.webUrl)openWithPressTransition(b,()=>showEmbeddedWeb(e.web_url||e.webUrl,e.title||'Upcoming'));else if(type==='discussion'&&e.id)openWithPressTransition(b,()=>showDiscussionNative('sections',esid,e.id,e.title||'Discussion'));});
 }
@@ -1934,7 +1989,7 @@ document.querySelectorAll('[data-notification-index]').forEach(b=>b.onclick=()=>
     c.innerHTML=`<section class="peopleAndroidPage"><div class="peopleList">${rows||'<div class="empty">No people found.</div>'}</div></section>`;
     document.querySelectorAll('[data-person-index]').forEach(b=>b.onclick=()=>{const u=window.__schoologyPeople[+b.dataset.personIndex];state.profileUser=u;state.tab='profile';state.profileTab='updates';state.toolbarTitle='Profile';render();loadTab()});
   }else if(state.tab==='settings'){
-    c.innerHTML=`<section class="settingsPage" data-liquid-glass-root><div class="settingsGlassSurface" aria-hidden="true"></div><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":26,"zRadius":40,"blurAmount":0.25,"refraction":0.69,"chromAberration":0.05,"opacity":1,"edgeHighlight":0.05,"shadowOpacity":0.30,"tintStrength":0.0,"brightness":0}'><h2>Notification Settings</h2><label class="settingRow"><span><b>Notifications</b><small id="notifSummary">Enabled</small></span><input type="checkbox" id="notifToggle" checked></label><button class="settingRow settingButton"><span><b>Ringtone</b><small>Set Notification Ringtone</small></span><span>›</span></button><label class="settingRow"><span><b>Vibrate</b><small>Vibrate on incoming notifications</small></span><input type="checkbox" checked></label><label class="settingRow"><span><b>Phone LED</b><small>Flash LED on notifications</small></span><input type="checkbox" checked></label></div><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":26,"zRadius":40,"blurAmount":0.25,"refraction":0.69,"chromAberration":0.05,"opacity":1,"edgeHighlight":0.05,"shadowOpacity":0.30,"tintStrength":0.0,"brightness":0}'><h2>Account Settings</h2><button id="accountInfo" class="settingRow settingButton"><span><b>Account Info</b></span><span>›</span></button></div><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":26,"zRadius":40,"blurAmount":0.25,"refraction":0.69,"chromAberration":0.05,"opacity":1,"edgeHighlight":0.05,"shadowOpacity":0.30,"tintStrength":0.0,"brightness":0}'><button id="checkForUpdates" class="settingRow settingButton"><span><b>Check for Updates</b><small>Check for a newer Schoology desktop port</small></span><span>›</span></button><button id="trySchoologyClassic" class="settingRow settingButton"><span><b>Try Schoology Classic</b><small>Install the latest classic Schoology Desktop Port</small></span><span>›</span></button><button id="trySchoologyExpressive" class="settingRow settingButton"><span><b>Try Schoology Expressive</b><small>Install the latest Schoology Expressive desktop port</small></span><span>›</span></button><label class="settingRow"><span><b>Window Controls Overlay</b><small>Place native window controls over the Schoology app bar (restart required)</small></span><input type="checkbox" id="windowChromeOverlayToggle" ${state.windowChromeOverlay?'checked':''}></label></div><div class="settingsVersion">Version: 2026.06.0-port.108</div></section>`;
+    c.innerHTML=`<section class="settingsPage" data-liquid-glass-root><div class="settingsGlassSurface" aria-hidden="true"></div><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":26,"zRadius":40,"blurAmount":0.25,"refraction":0.69,"chromAberration":0.05,"opacity":1,"edgeHighlight":0.05,"shadowOpacity":0.30,"tintStrength":0.0,"brightness":0}'><h2>Notification Settings</h2><label class="settingRow"><span><b>Notifications</b><small id="notifSummary">Enabled</small></span><input type="checkbox" id="notifToggle" checked></label><button class="settingRow settingButton"><span><b>Ringtone</b><small>Set Notification Ringtone</small></span><span>›</span></button><label class="settingRow"><span><b>Vibrate</b><small>Vibrate on incoming notifications</small></span><input type="checkbox" checked></label><label class="settingRow"><span><b>Phone LED</b><small>Flash LED on notifications</small></span><input type="checkbox" checked></label></div><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":26,"zRadius":40,"blurAmount":0.25,"refraction":0.69,"chromAberration":0.05,"opacity":1,"edgeHighlight":0.05,"shadowOpacity":0.30,"tintStrength":0.0,"brightness":0}'><h2>Account Settings</h2><button id="accountInfo" class="settingRow settingButton"><span><b>Account Info</b></span><span>›</span></button></div><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":26,"zRadius":40,"blurAmount":0.25,"refraction":0.69,"chromAberration":0.05,"opacity":1,"edgeHighlight":0.05,"shadowOpacity":0.30,"tintStrength":0.0,"brightness":0}'><button id="checkForUpdates" class="settingRow settingButton"><span><b>Check for Updates</b><small>Check for a newer Schoology desktop port</small></span><span>›</span></button><button id="trySchoologyClassic" class="settingRow settingButton"><span><b>Try Schoology Classic</b><small>Install the latest classic Schoology Desktop Port</small></span><span>›</span></button><button id="trySchoologyExpressive" class="settingRow settingButton"><span><b>Try Schoology Expressive</b><small>Install the latest Schoology Expressive desktop port</small></span><span>›</span></button><label class="settingRow"><span><b>Window Controls Overlay</b><small>Place native window controls over the Schoology app bar (restart required)</small></span><input type="checkbox" id="windowChromeOverlayToggle" ${state.windowChromeOverlay?'checked':''}></label></div><div class="settingsVersion">Version: 2026.06.0-port.109</div></section>`;
     document.getElementById('notifToggle')?.addEventListener('change',e=>{document.getElementById('notifSummary').textContent=e.target.checked?'Enabled':'Disabled'});
     document.getElementById('accountInfo')?.addEventListener('click',async()=>{try{await A.prepareWebSession();state.embeddedReturn={tab:'settings',title:'Settings'};showEmbeddedWeb('https://app.schoology.com/settings/account','Account Info',{allowBrowser:false,accountInfo:true})}catch(e){alert(e.message)}});
     document.getElementById('checkForUpdates')?.addEventListener('click',async()=>{const b=document.getElementById('checkForUpdates');if(b){b.disabled=true;b.classList.add('downloadBusy');b.querySelector('.settingProgress')?.remove();b.insertAdjacentHTML('beforeend','<span class="settingProgress"><img src="../assets/android_loading_spinner_72.gif" alt=""></span>');}try{const u=await A.checkForUpdates(true);if(u?.available)showUpdateDialog(u);else showAppDialog('Up to date','You are using the latest available Schoology Desktop Port release.')}catch(e){showAppDialog('Unable to check for updates',e.message||String(e))}finally{if(b){b.disabled=false;b.classList.remove('downloadBusy');b.querySelector('.settingProgress')?.remove()}}});
@@ -2138,4 +2193,4 @@ async function startSchoologyStartup(retry=false){
 }
 startSchoologyStartup();
 
-A.onUpdateAvailable?.(u=>{if(!u?.url)return;let dlg=showAppDialog('Downloading update','Downloading…',[]);const msg=dlg?.querySelector('.appDialogMessage');if(msg)msg.innerHTML='<div class="updateDownloadProgressWrap"><div class="updateDownloadProgressTrack"><div id="autoUpdateDownloadProgressBar" class="updateDownloadProgressBar" style="width:0%"></div></div><div id="autoUpdateDownloadProgressText" class="updateDownloadProgressText">Downloading…</div></div>';const off=A.onUpdateDownloadProgress?.(d=>{const bar=document.getElementById('autoUpdateDownloadProgressBar'),txt=document.getElementById('autoUpdateDownloadProgressText');if(bar&&d?.percent!=null)bar.style.width=d.percent+'%';if(txt)txt.textContent=d?.percent!=null?`Downloading… ${d.percent}%`:'Downloading…';});A.installUpdate(u).catch(e=>{off?.();closeAppDialog();showAppDialog('Unable to install update',e.message||String(e))});});
+A.onUpdateAvailable?.(async u=>{if(!u?.url)return;let dlg=await showAppDialog('Downloading update','Downloading…',[]);const msg=dlg?.querySelector('.appDialogMessage');if(msg)msg.innerHTML='<div class="updateDownloadProgressWrap"><div class="updateDownloadProgressTrack"><div id="autoUpdateDownloadProgressBar" class="updateDownloadProgressBar" style="width:0%"></div></div><div id="autoUpdateDownloadProgressText" class="updateDownloadProgressText">Downloading…</div></div>';const off=A.onUpdateDownloadProgress?.(d=>{const bar=document.getElementById('autoUpdateDownloadProgressBar'),txt=document.getElementById('autoUpdateDownloadProgressText');if(bar&&d?.percent!=null)bar.style.width=d.percent+'%';if(txt)txt.textContent=d?.percent!=null?`Downloading… ${d.percent}%`:'Downloading…';});A.installUpdate(u).catch(e=>{off?.();closeAppDialog();showAppDialog('Unable to install update',e.message||String(e))});});

@@ -1317,3 +1317,58 @@ html[data-electron-platform="win32"][data-window-controls-overlay="true"] .toolb
 .drawerRoot{transform:translateX(-102%)!important;transition:transform .28s cubic-bezier(.2,.8,.2,1)!important;}
 .drawerRoot:has(.drawer.open){transform:translateX(0)!important;}
 .drawerRoot .drawer.noSlide{transition:none!important;}
+
+/* v109: supplied LiquidGlass frosted surfaces — the glass element itself is the component. */
+.drawerRoot[data-liquid-glass]{
+  position:fixed!important;left:0!important;top:0!important;bottom:0!important;width:min(340px,84vw)!important;
+  z-index:31!important;pointer-events:auto!important;overflow:visible!important;
+  transform:translateX(-102%)!important;transition:transform .28s cubic-bezier(.2,.8,.2,1)!important;
+  background:transparent!important;border:0!important;border-radius:26px!important;box-shadow:none!important;
+  color:#fff!important;
+}
+.drawerRoot[data-liquid-glass].open{transform:translateX(0)!important;}
+.drawerRoot[data-liquid-glass] .drawerScroll{position:absolute!important;inset:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:auto!important;padding:0!important;}
+.drawerRoot[data-liquid-glass] > canvas{z-index:0!important;opacity:1!important;pointer-events:none!important;border-radius:26px!important;}
+.drawerRoot[data-liquid-glass] > .drawerScroll{z-index:1!important;}
+.drawerRoot[data-liquid-glass] .drawerItem,.drawerRoot[data-liquid-glass] .profileRow,.drawerRoot[data-liquid-glass] .courseSubItem{background:transparent!important;color:#fff!important;}
+.drawerRoot[data-liquid-glass] .drawerItem:hover,.drawerRoot[data-liquid-glass] .profileRow:hover,.drawerRoot[data-liquid-glass] .courseSubItem:hover{background:rgba(255,255,255,.10)!important;}
+.drawerRoot[data-liquid-glass] .drawerItem img,.drawerRoot[data-liquid-glass] .profileRow img{position:relative!important;z-index:2!important;}
+
+/* Remove the old opaque drawer backing; the supplied LiquidGlass canvas samples the shell. */
+.drawerRoot .drawerSurface{display:none!important;}
+
+/* Course Upcoming follows the official section Upcoming event feed. */
+.courseUpcomingPane,.courseUpcomingContent{background:transparent!important;}
+
+/* Dialogs: body is the LiquidGlass root, with the actual frosted panel and frosted
+   action buttons as direct glass children. The backdrop is a body pseudo-element so
+   it is not captured into the glass scene. */
+body.appDialogOpen::before{content:"";position:fixed;inset:0;background:rgba(0,0,0,.22);z-index:1000;pointer-events:none;}
+.appDialogOverlay{display:none!important;background:transparent!important;pointer-events:none!important;}
+.appDialog[data-liquid-glass]{
+  position:fixed!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;
+  width:min(440px,calc(100vw - 48px))!important;min-height:150px!important;max-height:calc(100vh - 48px)!important;
+  box-sizing:border-box!important;padding:22px 22px 78px!important;background:transparent!important;border:0!important;
+  border-radius:26px!important;box-shadow:none!important;overflow:hidden!important;z-index:1002!important;color:#263238!important;
+  visibility:hidden!important;opacity:0!important;
+}
+.appDialog[data-liquid-glass].ready{visibility:visible!important;opacity:1!important;}
+.appDialog[data-liquid-glass] > canvas{z-index:0!important;opacity:1!important;pointer-events:none!important;border-radius:26px!important;}
+.appDialog[data-liquid-glass] > :not(canvas){position:relative!important;z-index:1!important;}
+.appDialog[data-liquid-glass] h2{margin:0 0 12px!important;font-size:20px!important;}
+.appDialog[data-liquid-glass] .appDialogMessage{white-space:pre-wrap!important;line-height:1.45!important;overflow:auto!important;max-height:calc(100vh - 190px)!important;}
+.appDialogActionGlass{
+  position:fixed!important;z-index:1003!important;width:auto!important;min-width:82px!important;height:40px!important;padding:0 18px!important;
+  box-sizing:border-box!important;border:0!important;border-radius:26px!important;background:transparent!important;color:#263238!important;
+  visibility:hidden!important;opacity:0!important;overflow:visible!important;
+}
+.appDialogActionGlass.ready{visibility:visible!important;opacity:1!important;}
+.appDialogActionGlass > canvas{z-index:0!important;opacity:1!important;pointer-events:none!important;border-radius:26px!important;}
+.appDialogActionGlass:not(canvas){position:fixed!important;}
+
+/* Course dashboard/apps use actual glass buttons with a captured sibling surface, not a fake overlay. */
+.nativeDashboardCourses,.courseAppList{position:relative!important;background:transparent!important;}
+.nativeDashboardCourses .dashboardGlassSurface,.courseAppList .courseAppGlassSurface{background:#f5f6f7!important;}
+.nativeDashboardCourses > .nativeDashboardCourse,.courseAppList > .courseAppRow{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:26px!important;}
+.nativeDashboardCourses > .nativeDashboardCourse > canvas,.courseAppList > .courseAppRow > canvas{z-index:0!important;opacity:1!important;}
+.nativeDashboardCourses > .nativeDashboardCourse > :not(canvas),.courseAppList > .courseAppRow > :not(canvas){position:relative!important;z-index:1!important;}
