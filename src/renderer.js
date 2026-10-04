@@ -22,11 +22,41 @@ async function refreshLiquidGlassRoot(root){
     const instance=await LiquidGlass.init({root,glassElements});
     if(generation!==liquidGlassGeneration||!document.documentElement.contains(root)){instance.destroy();return;}
     liquidGlassInstances.push(instance);
+    // LiquidGlass intentionally sets glass overflow to visible so its shadow
+    // canvas can extend beyond the element. The navigation drawer is itself
+    // a scrolling viewport, so restore its required overflow after init.
+    if(root.classList.contains('drawer')) root.style.setProperty('overflow','auto','important');
   }catch(e){console.warn('Schoology LiquidGlass initialization failed:',e);}
 }
 async function refreshLiquidGlass(){
-  await refreshLiquidGlassRoot(document.querySelector('.shell'));
+  const shell=document.querySelector('.shell');
+  await refreshLiquidGlassRoot(shell);
   for(const root of document.querySelectorAll('[data-liquid-glass-root]')) await refreshLiquidGlassRoot(root);
+  // Toolbar/drawer action buttons get their own LiquidGlass root because the
+  // library requires glass elements to be direct children of their root.
+  for(const root of document.querySelectorAll('[data-liquid-glass-button-root]')) await refreshLiquidGlassRoot(root);
+}
+function prepareLiquidGlassButtons(){
+  const config='{"cornerRadius":22,"blurAmount":0.12,"refraction":0.16,"tintStrength":0.18,"brightness":0,"edgeHighlight":0.05,"shadowOpacity":0.16,"opacity":0.78,"button":true}';
+  const mark=(root,selector)=>{
+    if(!root)return;
+    root.setAttribute('data-liquid-glass-button-root','');
+    root.querySelectorAll(`:scope > ${selector}`).forEach(b=>{b.setAttribute('data-liquid-glass','');b.setAttribute('data-config',config)});
+  };
+  const toolbar=document.querySelector('.toolbar');
+  if(toolbar){
+    toolbar.querySelectorAll(':scope > button, :scope > .toolbarActionSlot > button, :scope > .toolbarActionSlot .toolbarImageButton').forEach(b=>{b.setAttribute('data-liquid-glass','');b.setAttribute('data-config',config)});
+    toolbar.setAttribute('data-liquid-glass-button-root','');
+  }
+  const drawer=document.querySelector('.drawer');
+  if(drawer){
+    mark(drawer.querySelector('.drawerSubHeader'),'button');
+  }
+  const createPlus=document.getElementById('homeCreatePlus');
+  if(createPlus){
+    createPlus.setAttribute('data-liquid-glass','');createPlus.setAttribute('data-config',config);
+    createPlus.parentElement?.setAttribute('data-liquid-glass-button-root','');
+  }
 }
 
 
@@ -96,7 +126,7 @@ const officialIconExtraData={"ic_attach_resourcesv3.png":"data:image/png;base64,
 function officialIcon(name,alt=''){const src=officialIconData[name]||officialIconExtraData[name]||'';return src?`<img class="officialEmbeddedIcon" src="${src}" alt="${esc(alt)}">`:''}
 function officialOrAssetIcon(name,alt=''){const embedded=officialIcon(name,alt);if(embedded)return embedded;const src=String(name||'').endsWith('.svg')||String(name||'').endsWith('.png')?name:`${name}.png`;return `<img class="officialEmbeddedIcon" src="../assets/icons/${src}" alt="${esc(alt)}">`}
 
-function render(){destroyLiquidGlass();let h=state.message?messageDetail():state.screen==='login'?login():state.screen==='search'?schoolSearchScreen():state.screen==='credentials'?credentials():state.screen==='externalSelect'?externalSelect():state.screen==='qr'?qr():shell();app.innerHTML=h;bind();syncWindowChrome();refreshLiquidGlass();return h}
+function render(){destroyLiquidGlass();let h=state.message?messageDetail():state.screen==='login'?login():state.screen==='search'?schoolSearchScreen():state.screen==='credentials'?credentials():state.screen==='externalSelect'?externalSelect():state.screen==='qr'?qr():shell();app.innerHTML=h;bind();syncWindowChrome();prepareLiquidGlassButtons();refreshLiquidGlass();return h}
 function syncWindowChrome(){if(A.platform!=='win32'&&A.platform!=='linux')return;let color='#002137';if(state.screen!=='app'){color=(state.screen==='login'||state.screen==='search'||state.screen==='credentials'||state.screen==='externalSelect'||state.screen==='qr')?'#44505d':'#22303e'}else if(document.getElementById('drawer')?.classList.contains('open'))color='#001827';A.setWindowChrome?.({color,symbolColor:'#ffffff',height:56}).catch?.(()=>{})}
 function login(){return `<div class="login loginAnimated"><img class="logo" src="../assets/logo_schoology.png"><div class="loginBody"><button id="schoolLogin" class="primary loginIconButton"><img src="../assets/icons/ic_school.svg" alt=""><span>Log in through your School</span></button><button id="continueSchoology" class="secondary loginIconButton"><img src="../assets/logo_schoology.png" alt=""><span>Log in using schoology.com</span></button><button id="qrLogin" class="qrButton loginIconButton"><img src="../assets/icons/ic_qr_code.svg" alt=""><span>Sign in with a QR code</span></button></div><div class="loginBottom">I need help signing in</div>${state.error?`<div class="error">${esc(state.error)}</div>`:''}</div>`}
 function schoolSearchScreen(){return `<div class="login loginAnimated"><button id="back" class="back">‹</button><img class="logo small" src="../assets/logo_schoology.png"><div class="loginBody"><div class="label">School</div><div class="searchWrap"><input id="schoolSearch" autocomplete="off" autofocus placeholder="Enter your School or domain" value="${esc(state.q)}"><span>⌕</span></div><div id="schoolSearchStatus"></div><div id="schoolSuggestions"></div></div>${state.error?`<div class="error">${esc(state.error)}</div>`:''}</div>`}
@@ -1150,9 +1180,9 @@ async function loadCourseApps(course,targetEl){
   const sid=course.id||course.section_id||course.sectionId;
   const x=await A.api({path:`v2/sections/${sid}/applications`,params:{}});
   const apps=x?.['@extra']||x.extra||x.data?.['@extra']||x.data?.extra||[];
-  el.innerHTML=apps.length?`<div class="courseAppList">${apps.map((a,i)=>{
+  el.innerHTML=apps.length?`<div class="courseAppList" data-liquid-glass-root>${apps.map((a,i)=>{
     const title=a.title||a.name||'Course App', logo=normalizeImageUrl(a.logoUrl||a.logo_url||a.logo||'');
-    return `<button class="courseAppRow" data-app-index="${i}">
+    return `<button class="courseAppRow" data-app-index="${i}" data-liquid-glass data-config='{"cornerRadius":10,"blurAmount":0.08,"refraction":0.12,"tintStrength":0.10,"edgeHighlight":0.03,"shadowOpacity":0.12,"opacity":0.92,"button":true}'>
       <span class="courseAppIcon">${logo?`<img data-course-image-url="${esc(logo)}" alt="" style="display:none">`:''}<span class="courseAppFallback"><img src="../assets/icons/ic_resourceapps.png" alt=""></span></span>
       <span><b>${esc(title)}</b></span><span>›</span>
     </button>`;
@@ -2016,7 +2046,7 @@ async function loadHomeTab(){
     // native equivalent so Chromium/WebView sizing cannot leave a blank bottom area.
     const uid=state.auth?.userId||state.auth?.user?.id;
     c.classList.remove('embeddedContentActive');c.classList.add('dashboardContentActive');
-    c.innerHTML=`<section class="nativeCourseDashboard"><div class="dashboardOfficialLoading" id="dashboardOfficialLoading"><img src="../assets/sgy_loading.gif" alt=""></div><div id="nativeDashboardCourses" class="nativeDashboardCourses"></div></section>`;
+    c.innerHTML=`<section class="nativeCourseDashboard"><div class="dashboardOfficialLoading" id="dashboardOfficialLoading"><img src="../assets/sgy_loading.gif" alt=""></div><div id="nativeDashboardCourses" class="nativeDashboardCourses" data-liquid-glass-root></div></section>`;
     const loader=document.getElementById('dashboardOfficialLoading'),list=document.getElementById('nativeDashboardCourses');
     try{
       const x=uid?await A.api({path:`users/${uid}/sections`,params:{limit:100}}):{};
@@ -2027,7 +2057,7 @@ async function loadHomeTab(){
         list.innerHTML=arr.map((course,i)=>{
           const title=courseTitleOf(course),section=sectionTitleOf(course),school=schoolNames[i]||'';
           const image=normalizeImageUrl(course.profile_url||course.profileUrl||course.course_profile_url||course.courseProfileUrl||course.course_theme||course.courseTheme||course.image||course.course_image||'');
-          return `<button class="nativeDashboardCourse" data-dashboard-course="${i}"><div class="nativeDashboardCourseImage" style="height:130px;min-height:130px;max-height:130px;">${image?`<img data-course-image-url="${esc(image)}" alt="" style="display:none;width:100%;height:130px;min-height:130px;max-height:130px;object-fit:cover;">`:''}<span class="dashboardCourseFallback" style="display:${image?'none':'flex'}">${esc(title.charAt(0)||'C')}</span></div><div class="nativeDashboardCourseInfo"><b>${esc(title)}</b>${section?`<span class="nativeDashboardCoursePeriod">${esc(section)}</span>`:''}${school?`<small>${esc(school)}</small>`:''}</div></button>`;
+          return `<button class="nativeDashboardCourse" data-dashboard-course="${i}" data-liquid-glass data-config='{"cornerRadius":12,"blurAmount":0.10,"refraction":0.14,"tintStrength":0.12,"edgeHighlight":0.04,"shadowOpacity":0.14,"opacity":0.90,"button":true}'><div class="nativeDashboardCourseImage" style="height:130px;min-height:130px;max-height:130px;">${image?`<img data-course-image-url="${esc(image)}" alt="" style="display:none;width:100%;height:130px;min-height:130px;max-height:130px;object-fit:cover;">`:''}<span class="dashboardCourseFallback" style="display:${image?'none':'flex'}">${esc(title.charAt(0)||'C')}</span></div><div class="nativeDashboardCourseInfo"><b>${esc(title)}</b>${section?`<span class="nativeDashboardCoursePeriod">${esc(section)}</span>`:''}${school?`<small>${esc(school)}</small>`:''}</div></button>`;
         }).join('');
         await hydrateCourseImages(list);
         list.querySelectorAll('[data-dashboard-course]').forEach(b=>b.onclick=()=>showCourse(arr[+b.dataset.dashboardCourse],'materials'));

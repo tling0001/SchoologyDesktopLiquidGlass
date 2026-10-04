@@ -1223,3 +1223,42 @@ html[data-electron-platform="win32"][data-window-controls-overlay="true"] .toolb
 .appDialog[data-liquid-glass]{background:rgba(255,255,255,.88)!important;border:1px solid rgba(255,255,255,.8)!important;overflow:visible!important;}
 .appDialog[data-liquid-glass] > canvas{z-index:0!important;opacity:.28!important;pointer-events:none!important;}
 .appDialog[data-liquid-glass] > :not(canvas){position:relative;z-index:1;}
+
+/* v105: LiquidGlass must not disable the drawer's scroll viewport. */
+.drawer[data-liquid-glass]{overflow:auto!important;overscroll-behavior:contain!important;}
+
+/* v105: compact LiquidGlass action buttons preserve the Android 48dp hit target
+   while adding the requested glass treatment without turning them into pills. */
+.toolbar[data-liquid-glass] > .iconButton[data-liquid-glass],
+.toolbar[data-liquid-glass] > .toolbarActionSlot .toolbarImageButton[data-liquid-glass],
+.drawerSubHeader > .drawerBack[data-liquid-glass],
+.drawerSubHeader > .drawerHeaderAction[data-liquid-glass],
+#homeCreatePlus[data-liquid-glass]{
+  border-radius:22px!important;
+  background:rgba(255,255,255,.045)!important;
+  color:#fff!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+}
+.toolbar[data-liquid-glass] > .iconButton[data-liquid-glass]:hover,
+.toolbar[data-liquid-glass] > .toolbarActionSlot .toolbarImageButton[data-liquid-glass]:hover,
+.drawerSubHeader > .drawerBack[data-liquid-glass]:hover,
+.drawerSubHeader > .drawerHeaderAction[data-liquid-glass]:hover,
+#homeCreatePlus[data-liquid-glass]:hover{background:rgba(255,255,255,.10)!important;}
+
+/* Dashboard cards retain the Android rectangular-card language while receiving
+   LiquidGlass depth/refraction. */
+.nativeDashboardCourse[data-liquid-glass],
+.courseAppRow[data-liquid-glass]{
+  border-radius:12px!important;
+  overflow:visible!important;
+  background:rgba(255,255,255,.82)!important;
+}
+.nativeDashboardCourse[data-liquid-glass] > canvas,
+.courseAppRow[data-liquid-glass] > canvas{opacity:.30!important;pointer-events:none!important;z-index:-1!important;}
+.nativeDashboardCourse[data-liquid-glass] > :not(canvas),
+.courseAppRow[data-liquid-glass] > :not(canvas){position:relative;z-index:1;}
+
+/* Rounded settings/dialog glass surfaces. */
+.settingsGroup[data-liquid-glass],.appDialog[data-liquid-glass]{border-radius:12px!important;}
