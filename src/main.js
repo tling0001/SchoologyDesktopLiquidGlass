@@ -585,6 +585,7 @@ async function loginExternalSchool(info){
 
 const UPDATE_REPO='tling0001/SchoologyDesktopLiquidGlass';
 const CLASSIC_UPDATE_REPO='tling0001/schoology-for-desktop-port';
+const EXPRESSIVE_UPDATE_REPO='tling0001/SchoologyDesktopM3E';
 const UPDATE_INTERVAL_MS=12*60*60*1000, UPDATE_RETRY_MS=5*60*1000, UPDATE_STATE_FILE=path.join(stableUserData,'update-state.json');
 function readUpdateState(){try{return JSON.parse(fs.readFileSync(UPDATE_STATE_FILE,'utf8'))}catch{return {}}}
 function writeUpdateState(v){try{fs.mkdirSync(path.dirname(UPDATE_STATE_FILE),{recursive:true});fs.writeFileSync(UPDATE_STATE_FILE,JSON.stringify(v,null,2),'utf8')}catch{}}
@@ -654,6 +655,9 @@ async function checkForUpdates(force=false){
 async function checkForClassicUpdate(){
   return getLatestRepoUpdate(CLASSIC_UPDATE_REPO,{compareLocal:false});
 }
+async function checkForExpressiveUpdate(){
+  return getLatestRepoUpdate(EXPRESSIVE_UPDATE_REPO,{compareLocal:false});
+}
 let updateTimer=null;function scheduleUpdateChecks(){const run=async()=>{try{const result=await checkForUpdates(false);if(result?.available){try{win?.webContents?.send('update-available',result)}catch(e){console.error('Automatic Schoology update notification failed:',e.message)}}if(updateTimer)clearTimeout(updateTimer);updateTimer=setTimeout(run,UPDATE_INTERVAL_MS)}catch(e){console.log('Schoology update check deferred:',e.message);if(updateTimer)clearTimeout(updateTimer);updateTimer=setTimeout(run,UPDATE_RETRY_MS)}};const st=readUpdateState();const due=!st.lastSuccessfulCheck||Date.now()-st.lastSuccessfulCheck>=UPDATE_INTERVAL_MS;setTimeout(()=>{if(due)run();else updateTimer=setTimeout(run,Math.max(1000,UPDATE_INTERVAL_MS-(Date.now()-st.lastSuccessfulCheck)))},8000)}
 
 function create(){
@@ -707,6 +711,7 @@ app.whenReady().then(()=>{
   ipcMain.handle('update-assignment-grade',(_,x)=>updateAssignmentGrade(x));
   ipcMain.handle('check-for-updates',()=>checkForUpdates(true));
   ipcMain.handle('check-for-classic-update',()=>checkForClassicUpdate());
+  ipcMain.handle('check-for-expressive-update',()=>checkForExpressiveUpdate());
   ipcMain.handle('set-window-chrome',(_,x)=>{if(process.platform==='win32'||process.platform==='linux'){try{if(windowChromeOverlayEnabled())win?.setTitleBarOverlay?.({color:String(x?.color||'#002137'),symbolColor:String(x?.symbolColor||'#ffffff'),height:Number(x?.height||56)})}catch{}}return true});
   ipcMain.handle('get-window-chrome-mode',()=>({overlay:windowChromeOverlayEnabled(),platform:process.platform}));
   ipcMain.handle('set-window-chrome-mode',(_,enabled)=>{saveWindowChromeOverlay(!!enabled);app.relaunch();app.exit(0);return true});
