@@ -111,7 +111,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          TAG="v$PACKAGE_VERSION"
+          TAG="$PACKAGE_VERSION"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes
           fi
@@ -121,5 +121,5 @@ jobs:
           gh release create "$TAG" release-assets/windows/* release-assets/macos/* release-assets/linux/* \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Schoology Desktop $PACKAGE_VERSION" \
+            --title "$PACKAGE_VERSION" \
             --generate-notes

@@ -111,10 +111,12 @@ async function showAppDialog(title,message,actions=[{label:'OK',action:null}]){
   await refreshLiquidGlassRoot(document.body);
   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
   if(!document.body.contains(glass))return glass;
-  await positionDialogButtons();
-  window.addEventListener('resize',positionDialogButtons);
-  liquidGlassListeners.push(()=>window.removeEventListener('resize',positionDialogButtons));
+  const align=()=>requestAnimationFrame(()=>positionDialogButtons());
+  align();
+  window.addEventListener('resize',align);
+  liquidGlassListeners.push(()=>window.removeEventListener('resize',align));
   glass.classList.add('ready');buttonEls.forEach(b=>b.classList.add('ready'));
+  align();
   return glass;
 }
 
@@ -2029,6 +2031,8 @@ async function renderUpcomingInto(c){
  const sorted=arr.slice().sort((a,b)=>String(a.start||'').localeCompare(String(b.start||'')));
  const body=c.querySelector('.homeUpcomingList')||c;
  body.innerHTML=renderUpcoming(sorted);
+ const upcomingRoot=body.querySelector('.upcomingList[data-liquid-glass-root]');
+ if(upcomingRoot)await refreshLiquidGlassRoot(upcomingRoot);
  document.querySelectorAll('[data-course-upcoming-id]').forEach(b=>b.onclick=async()=>{const e=sorted.find(v=>String(v.id||'')===String(b.dataset.courseUpcomingId));if(!e)return;const type=String(e.type||'').toLowerCase();const aid=e.assignment_id??e.assignmentId??e.assignment?.id;const sid=e.section_id??e.sectionId;if(type==='assignment'&&sid&&aid){state.homeUpcomingReturn=true;openWithPressTransition(b,()=>showAssignment(sid,aid));return}if(['assessment','assessment_v2','managed_assessment','quiz'].includes(type)){const id=aid??e.id;if(id){openWithPressTransition(b,async()=>{state.embeddedReturn={tab:'home',homeTab:state.homeTab,title:'Home'};await A.prepareWebSession();showEmbeddedWeb(`https://app.schoology.com/assignment/${id}`,e.title||'Quiz',{allowBrowser:false,quiz:true,assessment:true})});return}}if(type==='event'&&e.id){openWithPressTransition(b,()=>showEventNative(e.section_id?'sections':'users',e.section_id||state.auth?.userId,e.id,e.title||'Event'));return}if(e.web_url||e.webUrl)openWithPressTransition(b,()=>showEmbeddedWeb(e.web_url||e.webUrl,e.title||'Upcoming'));});
 }
 async function loadHomeUpcomingPane(){const c=document.getElementById('homeUpcomingPane');if(!c)return;c.innerHTML='<div class="homeUpcomingHeader">Upcoming</div><div class="homeUpcomingScroll"><div class="homeUpcomingList"><div class="loading"><img class="androidInlineSpinner" src="../assets/android_loading_spinner_72.gif" alt=""><span>Loading…</span></div></div></div>';await renderUpcomingInto(c)}

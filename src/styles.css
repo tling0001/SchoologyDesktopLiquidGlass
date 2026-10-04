@@ -1440,3 +1440,76 @@ body.appDialogOpen::before{content:"";position:fixed;inset:0;background:rgba(0,0
 .materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>:not(canvas){position:relative!important;z-index:1!important;}
 .upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass]:hover,
 .materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]:hover{background:transparent!important;}
+
+/* v113: final LiquidGlass geometry/stacking fixes. The supplied library already
+   positions its shader canvas with the required 20px shadow pad. Keep that
+   geometry, but make the canvas visible above the host's captured scene and
+   below the host content. */
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]>canvas,
+.courseAppList>.courseAppRow[data-liquid-glass]>canvas,
+.upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass]>canvas,
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>canvas{
+  z-index:0!important;
+  opacity:1!important;
+  pointer-events:none!important;
+}
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]>:not(canvas),
+.courseAppList>.courseAppRow[data-liquid-glass]>:not(canvas),
+.upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass]>:not(canvas),
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>:not(canvas){
+  position:relative!important;
+  z-index:1!important;
+}
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass],
+.courseAppList>.courseAppRow[data-liquid-glass],
+.upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass],
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]{
+  margin-left:8px!important;
+  margin-right:8px!important;
+  width:calc(100% - 16px)!important;
+  box-sizing:border-box!important;
+}
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]{
+  left:0!important;
+  right:0!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  width:100%!important;
+}
+/* The scene belongs to the card shell; the shell itself must not clip the
+   library's shadow-pad canvas. */
+.nativeDashboardCourseShell{overflow:visible!important;}
+.nativeDashboardCourseScene{border-radius:26px!important;overflow:hidden!important;}
+
+/* Keep material titles/icons left-aligned; only the final chevron is right. */
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]{
+  display:grid!important;
+  grid-template-columns:44px minmax(0,1fr) 28px!important;
+  align-items:center!important;
+  text-align:left!important;
+  justify-content:initial!important;
+}
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>.materialIcon,
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>span:nth-child(2){text-align:left!important;justify-self:start!important;}
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>.rowChevron,
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>span:last-child{justify-self:end!important;text-align:right!important;}
+
+/* Dialog content/actions: reserve a stable footer and align the detached direct-
+   child glass buttons from the dialog's actual screen rect. */
+.appDialog[data-liquid-glass]{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  box-sizing:border-box!important;
+}
+.appDialog[data-liquid-glass] h2{position:relative!important;flex:0 0 auto!important;text-align:left!important;}
+.appDialog[data-liquid-glass] .appDialogMessage{position:relative!important;flex:1 1 auto!important;min-height:0!important;text-align:left!important;}
+.appDialogActionGlass{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  text-align:center!important;
+  transform:none!important;
+  margin:0!important;
+}
+.appDialogActionGlass .appDialogActionLabel{display:flex!important;align-items:center!important;justify-content:center!important;height:100%!important;line-height:normal!important;text-align:center!important;}
