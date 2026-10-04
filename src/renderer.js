@@ -22,41 +22,12 @@ async function refreshLiquidGlassRoot(root){
     const instance=await LiquidGlass.init({root,glassElements});
     if(generation!==liquidGlassGeneration||!document.documentElement.contains(root)){instance.destroy();return;}
     liquidGlassInstances.push(instance);
-    // LiquidGlass intentionally sets glass overflow to visible so its shadow
-    // canvas can extend beyond the element. The navigation drawer is itself
-    // a scrolling viewport, so restore its required overflow after init.
-    if(root.classList.contains('drawer')) root.style.setProperty('overflow','auto','important');
   }catch(e){console.warn('Schoology LiquidGlass initialization failed:',e);}
 }
 async function refreshLiquidGlass(){
-  const shell=document.querySelector('.shell');
-  await refreshLiquidGlassRoot(shell);
+  await refreshLiquidGlassRoot(document.querySelector('.shell'));
   for(const root of document.querySelectorAll('[data-liquid-glass-root]')) await refreshLiquidGlassRoot(root);
-  // Toolbar/drawer action buttons get their own LiquidGlass root because the
-  // library requires glass elements to be direct children of their root.
-  for(const root of document.querySelectorAll('[data-liquid-glass-button-root]')) await refreshLiquidGlassRoot(root);
-}
-function prepareLiquidGlassButtons(){
-  const config='{"cornerRadius":22,"blurAmount":0.12,"refraction":0.16,"tintStrength":0.18,"brightness":0,"edgeHighlight":0.05,"shadowOpacity":0.16,"opacity":0.78,"button":true}';
-  const mark=(root,selector)=>{
-    if(!root)return;
-    root.setAttribute('data-liquid-glass-button-root','');
-    root.querySelectorAll(`:scope > ${selector}`).forEach(b=>{b.setAttribute('data-liquid-glass','');b.setAttribute('data-config',config)});
-  };
-  const toolbar=document.querySelector('.toolbar');
-  if(toolbar){
-    toolbar.querySelectorAll(':scope > button, :scope > .toolbarActionSlot > button, :scope > .toolbarActionSlot .toolbarImageButton').forEach(b=>{b.setAttribute('data-liquid-glass','');b.setAttribute('data-config',config)});
-    toolbar.setAttribute('data-liquid-glass-button-root','');
-  }
-  const drawer=document.querySelector('.drawer');
-  if(drawer){
-    mark(drawer.querySelector('.drawerSubHeader'),'button');
-  }
-  const createPlus=document.getElementById('homeCreatePlus');
-  if(createPlus){
-    createPlus.setAttribute('data-liquid-glass','');createPlus.setAttribute('data-config',config);
-    createPlus.parentElement?.setAttribute('data-liquid-glass-button-root','');
-  }
+  if(document.body.querySelector(':scope > [data-liquid-glass]')) await refreshLiquidGlassRoot(document.body);
 }
 
 
@@ -73,14 +44,14 @@ let loadTabGeneration=0;
 let state={screen:'login',school:null,schools:[],q:'',loading:false,error:'',auth:null,user:null,tab:'home',homeTab:'recent',searchToken:0,drawerPage:null,message:null,messageTab:'inbox',messageFolder:'inbox',messageThread:null,composeMessage:false,selectedCourse:null,mobileMe:null,courseDashboardEnabled:false,preferredHomepage:'recent',toolbarTitle:'Home',embeddedReturn:null,embeddedCanOpenExternal:false,homeUpcomingReturn:false,assignmentTab:'info',assignmentCanSubmit:false,assignmentIsTeacher:false,assignmentSubpage:null,submissionMenu:false,assignmentAllowComments:false,assignmentLandscape:false,folderId:0,folderStack:[],courseView:null,activityUsers:{},activityComments:null,currentFolderId:0,currentGroup:null,profileUser:null,profileTab:'updates',groupTab:'updates',resourceCollection:null,windowChromeOverlay:false,homeCreateMenu:false,calendarDate:null,calendarSelectedDate:null,calendarCanCreate:false,calendarEvents:[],calendarEventsMonth:'',calendarTab:'calendar',calendarUpcomingEvents:null,groupJoinOpen:false,embeddedTheme:'',profileReturn:null};
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function alert(message){showAppDialog('Schoology',String(message));}
-function showAppDialog(title,message,actions=[{label:'OK',action:null}]){let el=document.getElementById('appDialog');if(!el){el=document.createElement('div');el.id='appDialog';el.className='appDialogOverlay';document.body.appendChild(el)}el.innerHTML=`<div class="appDialog" data-liquid-glass data-config='{"cornerRadius":16,"blurAmount":0.16,"refraction":0.12,"edgeHighlight":0.03,"shadowOpacity":0.18,"opacity":0.94}' role="dialog" aria-modal="true"><h2>${esc(title)}</h2><div class="appDialogMessage">${esc(message)}</div><div class="appDialogActions">${actions.map((a,i)=>`<button data-dialog-action="${i}">${esc(a.label)}</button>`).join('')}</div></div>`;el.classList.add('open');el.setAttribute('data-liquid-glass-root','');refreshLiquidGlassRoot(el);el.querySelectorAll('[data-dialog-action]').forEach((b,i)=>b.onclick=async()=>{el.classList.remove('open');const fn=actions[i]?.action;if(fn)await fn()});return el}
+function showAppDialog(title,message,actions=[{label:'OK',action:null}]){let el=document.getElementById('appDialog');if(!el){el=document.createElement('div');el.id='appDialog';el.className='appDialogOverlay';document.body.appendChild(el)}let glass=document.getElementById('appDialogGlass');if(!glass){glass=document.createElement('div');glass.id='appDialogGlass';glass.className='appDialog';glass.setAttribute('data-liquid-glass','');glass.setAttribute('role','dialog');glass.setAttribute('aria-modal','true');document.body.appendChild(glass)}glass.dataset.config='{"cornerRadius":20,"blurAmount":0.24,"refraction":0.34,"chromAberration":0.035,"edgeHighlight":0.07,"shadowOpacity":0.28,"opacity":0.72,"tintStrength":0.12,"brightness":0.02}';glass.innerHTML=`<h2>${esc(title)}</h2><div class="appDialogMessage">${esc(message)}</div><div class="appDialogActions">${actions.map((a,i)=>`<button data-dialog-action="${i}">${esc(a.label)}</button>`).join('')}</div>`;el.classList.add('open');glass.classList.add('open');refreshLiquidGlassRoot(document.body);glass.querySelectorAll('[data-dialog-action]').forEach((b,i)=>b.onclick=async()=>{el.classList.remove('open');glass.classList.remove('open');const fn=actions[i]?.action;if(fn)await fn()});return glass}
 function showUpdateDialog(u){
   showAppDialog('Update available',`Schoology Desktop Port v${u.version} is available. The update will download only after you choose Install update.`,[{label:'Later',action:null},{label:'Install update',action:async()=>{
     const dlg=showAppDialog('Downloading update','Downloading…',[]);
     const msg=dlg?.querySelector('.appDialogMessage');
     if(msg)msg.innerHTML='<div class="updateDownloadProgressWrap"><div class="updateDownloadProgressTrack"><div id="updateDownloadProgressBar" class="updateDownloadProgressBar" style="width:0%"></div></div><div id="updateDownloadProgressText" class="updateDownloadProgressText">Downloading…</div></div>';
     const off=window.schoology?.onUpdateDownloadProgress?.(d=>{const bar=document.getElementById('updateDownloadProgressBar'),txt=document.getElementById('updateDownloadProgressText');if(bar&&d?.percent!=null)bar.style.width=d.percent+'%';if(txt)txt.textContent=d?.total?`Downloading… ${d.percent||0}%`:'Downloading…';});
-    try{await A.installUpdate(u);off?.()}catch(e){off?.();dlg?.classList.remove('open');showAppDialog('Unable to install update',e.message||String(e))}
+    try{await A.installUpdate(u);off?.()}catch(e){off?.();dlg?.classList.remove('open');document.getElementById('appDialogGlass')?.classList.remove('open');showAppDialog('Unable to install update',e.message||String(e))}
   }}]);
 }
 function showClassicUpdateDialog(u){
@@ -126,7 +97,7 @@ const officialIconExtraData={"ic_attach_resourcesv3.png":"data:image/png;base64,
 function officialIcon(name,alt=''){const src=officialIconData[name]||officialIconExtraData[name]||'';return src?`<img class="officialEmbeddedIcon" src="${src}" alt="${esc(alt)}">`:''}
 function officialOrAssetIcon(name,alt=''){const embedded=officialIcon(name,alt);if(embedded)return embedded;const src=String(name||'').endsWith('.svg')||String(name||'').endsWith('.png')?name:`${name}.png`;return `<img class="officialEmbeddedIcon" src="../assets/icons/${src}" alt="${esc(alt)}">`}
 
-function render(){destroyLiquidGlass();let h=state.message?messageDetail():state.screen==='login'?login():state.screen==='search'?schoolSearchScreen():state.screen==='credentials'?credentials():state.screen==='externalSelect'?externalSelect():state.screen==='qr'?qr():shell();app.innerHTML=h;bind();syncWindowChrome();prepareLiquidGlassButtons();refreshLiquidGlass();return h}
+function render(){destroyLiquidGlass();let h=state.message?messageDetail():state.screen==='login'?login():state.screen==='search'?schoolSearchScreen():state.screen==='credentials'?credentials():state.screen==='externalSelect'?externalSelect():state.screen==='qr'?qr():shell();app.innerHTML=h;bind();syncWindowChrome();refreshLiquidGlass();return h}
 function syncWindowChrome(){if(A.platform!=='win32'&&A.platform!=='linux')return;let color='#002137';if(state.screen!=='app'){color=(state.screen==='login'||state.screen==='search'||state.screen==='credentials'||state.screen==='externalSelect'||state.screen==='qr')?'#44505d':'#22303e'}else if(document.getElementById('drawer')?.classList.contains('open'))color='#001827';A.setWindowChrome?.({color,symbolColor:'#ffffff',height:56}).catch?.(()=>{})}
 function login(){return `<div class="login loginAnimated"><img class="logo" src="../assets/logo_schoology.png"><div class="loginBody"><button id="schoolLogin" class="primary loginIconButton"><img src="../assets/icons/ic_school.svg" alt=""><span>Log in through your School</span></button><button id="continueSchoology" class="secondary loginIconButton"><img src="../assets/logo_schoology.png" alt=""><span>Log in using schoology.com</span></button><button id="qrLogin" class="qrButton loginIconButton"><img src="../assets/icons/ic_qr_code.svg" alt=""><span>Sign in with a QR code</span></button></div><div class="loginBottom">I need help signing in</div>${state.error?`<div class="error">${esc(state.error)}</div>`:''}</div>`}
 function schoolSearchScreen(){return `<div class="login loginAnimated"><button id="back" class="back">‹</button><img class="logo small" src="../assets/logo_schoology.png"><div class="loginBody"><div class="label">School</div><div class="searchWrap"><input id="schoolSearch" autocomplete="off" autofocus placeholder="Enter your School or domain" value="${esc(state.q)}"><span>⌕</span></div><div id="schoolSearchStatus"></div><div id="schoolSuggestions"></div></div>${state.error?`<div class="error">${esc(state.error)}</div>`:''}</div>`}
@@ -152,7 +123,7 @@ function shell(){
    </div>`:'';
  const drawerList=drawerItems.map(([id,label,icon],i)=>`${i===3?'<div class="drawerDivider"></div>':''}${i===9?'<div class="drawerDivider"></div>':''}${drawerItemMarkup(id,label,icon)}`).join('');
  return `<div class="shell">
- <header class="toolbar" data-liquid-glass data-config='{"cornerRadius":0,"blurAmount":0.08,"refraction":0.10,"tintStrength":0.45,"brightness":-0.08,"edgeHighlight":0.02,"shadowOpacity":0.12,"opacity":0.34}'>${state.assignmentView||state.embeddedTitle?`<button id="toolbarBack" class="iconButton" aria-label="Back">‹</button>`:`<button id="menuButton" class="iconButton" aria-label="Navigation menu">${menuImg}</button>`}<span class="toolbarTitle">${esc(state.toolbarTitle||'Home')}</span><span id="toolbarActionSlot" class="toolbarActionSlot"></span></header>
+ <header class="toolbar" data-liquid-glass-root>${state.assignmentView||state.embeddedTitle?`<button id="toolbarBack" class="iconButton toolbarGlassButton" data-liquid-glass data-config='{"button":true,"cornerRadius":24,"blurAmount":0.10,"refraction":0.22,"tintStrength":0.30,"brightness":-0.03,"edgeHighlight":0.05,"shadowOpacity":0.18,"opacity":0.58}' aria-label="Back">‹</button>`:`<button id="menuButton" class="iconButton toolbarGlassButton" data-liquid-glass data-config='{"button":true,"cornerRadius":24,"blurAmount":0.10,"refraction":0.22,"tintStrength":0.30,"brightness":-0.03,"edgeHighlight":0.05,"shadowOpacity":0.18,"opacity":0.58}' aria-label="Navigation menu">${menuImg}</button>`}<div class="toolbarSurface" aria-hidden="true"></div><span class="toolbarTitle">${esc(state.toolbarTitle||'Home')}</span><button id="toolbarAction1" class="iconButton toolbarGlassButton toolbarActionButton" data-liquid-glass data-config='{"button":true,"cornerRadius":24,"blurAmount":0.10,"refraction":0.22,"tintStrength":0.30,"brightness":-0.03,"edgeHighlight":0.05,"shadowOpacity":0.18,"opacity":0.58}' aria-hidden="true" tabindex="-1" hidden></button><button id="toolbarAction2" class="iconButton toolbarGlassButton toolbarActionButton" data-liquid-glass data-config='{"button":true,"cornerRadius":24,"blurAmount":0.10,"refraction":0.22,"tintStrength":0.30,"brightness":-0.03,"edgeHighlight":0.05,"shadowOpacity":0.18,"opacity":0.58}' aria-hidden="true" tabindex="-1" hidden></button></header>
  <main id="content"><div class="loading"><img class="androidInlineSpinner" src="../assets/android_loading_spinner_72.gif" alt=""><span>Loading…</span></div></main>
  <div id="drawerShade" class="drawerShade ${drawerPage?'submenuShade':''}"></div><aside id="drawer" class="drawer ${drawerPage?'drawerSubMode':''}" data-liquid-glass data-config='{"cornerRadius":0,"blurAmount":0.10,"refraction":0.12,"tintStrength":0.55,"brightness":-0.10,"edgeHighlight":0.02,"shadowOpacity":0.12,"opacity":0.28}'>
    ${drawerPage||`<button id="drawerProfile" class="profileRow" aria-label="Open profile"><span class="profileAvatarCircle"><img data-profile-drawer-image="1" src="../assets/icons/profile_default_website.png" alt=""></span><span>${esc(state.auth?.user?.name_display||state.auth?.user?.name||'Profile')}</span></button><div class="drawerList">${drawerList}</div>`}
@@ -469,54 +440,37 @@ function syncToolbar(){
   const needs=!!(state.assignmentView||state.embeddedTitle||state.resourceCollection||state.profileReturn) && !(state.courseView && !state.assignmentView && !state.embeddedTitle);
   const existing=header.querySelector('#toolbarBack');
   const menu=header.querySelector('#menuButton');
-  if(needs&&!existing){const b=document.createElement('button');b.id='toolbarBack';b.className='iconButton';b.setAttribute('aria-label','Back');b.textContent='‹';b.addEventListener('click',navigateBack);header.insertBefore(b,header.firstChild);if(menu)menu.remove();}
-  if(!needs&&!existing&&menu===null){const b=document.createElement('button');b.id='menuButton';b.className='iconButton';b.setAttribute('aria-label','Navigation menu');b.innerHTML=`${menuImg}`;header.insertBefore(b,header.firstChild);b.addEventListener('click',()=>{document.getElementById('drawer')?.classList.add('open');document.getElementById('drawerShade')?.classList.add('open');syncWindowChrome()});}
-  if(!needs&&existing){existing.remove();const b=document.createElement('button');b.id='menuButton';b.className='iconButton';b.setAttribute('aria-label','Navigation menu');b.innerHTML=`${menuImg}`;header.insertBefore(b,header.firstChild);b.addEventListener('click',()=>{document.getElementById('drawer')?.classList.add('open');document.getElementById('drawerShade')?.classList.add('open');syncWindowChrome()});}
-  const title=header.querySelector('.toolbarTitle');if(title)title.textContent=state.toolbarTitle||'Home';header.classList.toggle('toolbarAccountInfo',state.embeddedTheme==='account');header.classList.toggle('toolbarLti',state.embeddedTheme==='lti');
-  const slot=header.querySelector('#toolbarActionSlot');if(!slot)return;
-  slot.innerHTML='';
-  if(state.tab==='home'&&!state.courseView&&!state.assignmentView&&!state.embeddedTitle){slot.innerHTML=`<button id="homeCreatePlus" class="iconButton toolbarImageButton" aria-label="Create">${officialIcon('ic_action_new.png','')}</button>`;document.getElementById('homeCreatePlus')?.addEventListener('click',showHomeCreateMenu);return;}
-  if(state.tab==='calendar'&&!state.courseView&&!state.embeddedTitle){if(state.calendarCanCreate){slot.innerHTML=`<button id="calendarCreatePlus" class="iconButton toolbarImageButton" aria-label="Create event">${officialIcon('ic_action_new.png','')}</button>`;document.getElementById('calendarCreatePlus')?.addEventListener('click',()=>showCreatePostDialog('event','',null));}return;}
-  if(state.eventView){
-    slot.innerHTML=`<button id="eventCommentPlus" class="iconButton toolbarImageButton" aria-label="Post comment">${officialIcon('ic_action_new.png','')}</button>`;
-    document.getElementById('eventCommentPlus')?.addEventListener('click',()=>openNativeCommentComposer('event',state.eventView));return;
+  const glassConfig='{"button":true,"cornerRadius":24,"blurAmount":0.10,"refraction":0.22,"tintStrength":0.30,"brightness":-0.03,"edgeHighlight":0.05,"shadowOpacity":0.18,"opacity":0.58}';
+  const makeNav=(id,label,html,handler)=>{const old=header.querySelector('#'+id);if(old){old.innerHTML=html;old.setAttribute('aria-label',label);old.hidden=false;old.setAttribute('data-liquid-glass','');old.dataset.config=glassConfig;old.onclick=handler;return old;}const b=document.createElement('button');b.id=id;b.className='iconButton toolbarGlassButton';b.setAttribute('data-liquid-glass','');b.dataset.config=glassConfig;b.setAttribute('aria-label',label);b.innerHTML=html;b.onclick=handler;header.insertBefore(b,header.querySelector('.toolbarTitle'));return b};
+  if(needs){
+    menu?.remove();
+    const b=makeNav('toolbarBack','Back','‹',navigateBack);b.classList.add('toolbarGlassButton');
+  }else{
+    existing?.remove();
+    if(!header.querySelector('#menuButton')) makeNav('menuButton','Navigation menu',menuImg,()=>{document.getElementById('drawer')?.classList.add('open');document.getElementById('drawerShade')?.classList.add('open');syncWindowChrome()});
   }
-  if(state.discussionView){
-    if(state.discussionView.tab==='comments'){
-      slot.innerHTML=`<button id="discussionCommentPlus" class="iconButton toolbarImageButton" aria-label="Post comment">${officialIcon('ic_action_new.png','')}</button>`;
-      document.getElementById('discussionCommentPlus')?.addEventListener('click',()=>openNativeCommentComposer('discussion',state.discussionView));
-    }
+  const title=header.querySelector('.toolbarTitle');if(title)title.textContent=state.toolbarTitle||'Home';header.classList.toggle('toolbarAccountInfo',state.embeddedTheme==='account');header.classList.toggle('toolbarLti',state.embeddedTheme==='lti');
+  const actions=[header.querySelector('#toolbarAction1'),header.querySelector('#toolbarAction2')];
+  actions.forEach((b,i)=>{if(!b)return;b.hidden=true;b.innerHTML='';b.onclick=null;b.setAttribute('aria-hidden','true');b.setAttribute('tabindex','-1');b.dataset.config=glassConfig});
+  const setAction=(i,id,label,html,handler)=>{const b=actions[i];if(!b)return;b.id=id;b.hidden=false;b.removeAttribute('aria-hidden');b.removeAttribute('tabindex');b.className='iconButton toolbarGlassButton toolbarActionButton toolbarImageButton';b.setAttribute('aria-label',label);b.innerHTML=html;b.dataset.config=glassConfig;b.onclick=handler;return b};
+  if(state.tab==='home'&&!state.courseView&&!state.assignmentView&&!state.embeddedTitle){setAction(0,'homeCreatePlus','Create',officialIcon('ic_action_new.png',''),showHomeCreateMenu);return;}
+  if(state.tab==='calendar'&&!state.courseView&&!state.embeddedTitle){if(state.calendarCanCreate)setAction(0,'calendarCreatePlus','Create event',officialIcon('ic_action_new.png',''),()=>showCreatePostDialog('event','',null));return;}
+  if(state.eventView){setAction(0,'eventCommentPlus','Post comment',officialIcon('ic_action_new.png',''),()=>openNativeCommentComposer('event',state.eventView));return;}
+  if(state.discussionView){if(state.discussionView.tab==='comments')setAction(0,'discussionCommentPlus','Post comment',officialIcon('ic_action_new.png',''),()=>openNativeCommentComposer('discussion',state.discussionView));return;}
+  if(state.albumView)return;
+  if(state.embeddedTitle && state.embeddedTheme!=='quiz'){
+    setAction(0,'embeddedReload','Reload','<img src="../assets/icons/ic_action_refresh.png" alt="">',()=>{const w=document.getElementById('schoologyWebview');try{w?.reload()}catch{}});
+    if(state.embeddedCanOpenExternal)setAction(1,'embeddedOpenBrowser','Open in browser','↗',()=>{const w=document.getElementById('schoologyWebview');const u=normalizeSchoologyWebUrl(w?.getURL?.()||'');if(u)A.openExternal(u).catch(e=>{console.warn('External browser failed:',e);showEmbeddedWeb(u,state.embeddedTitle||'Link',{allowBrowser:false})})});
     return;
   }
-  if(state.albumView){ return; }
-  if(state.embeddedTitle && state.embeddedTheme!=='quiz'){
-    slot.innerHTML=`<button id="embeddedReload" class="iconButton toolbarImageButton" aria-label="Reload"><img src="../assets/icons/ic_action_refresh.png" alt=""></button>${state.embeddedCanOpenExternal?'<button id="embeddedOpenBrowser" class="iconButton toolbarImageButton" aria-label="Open in browser" title="Open in browser">↗</button>':''}`;
-    document.getElementById('embeddedReload')?.addEventListener('click',()=>{const w=document.getElementById('schoologyWebview');try{w?.reload()}catch{}});
-    document.getElementById('embeddedOpenBrowser')?.addEventListener('click',()=>{const w=document.getElementById('schoologyWebview');const u=normalizeSchoologyWebUrl(w?.getURL?.()||'');if(u)A.openExternal(u).catch(e=>{console.warn('External browser failed:',e);showEmbeddedWeb(u,state.embeddedTitle||'Link',{allowBrowser:false})})});return;
-  }
-  if(state.embeddedTitle && state.embeddedCanOpenExternal){slot.innerHTML='<button id="embeddedOpenBrowser" class="iconButton toolbarImageButton" aria-label="Open in browser" title="Open in browser">↗</button>';document.getElementById('embeddedOpenBrowser')?.addEventListener('click',()=>{const w=document.getElementById('schoologyWebview');const u=normalizeSchoologyWebUrl(w?.getURL?.()||'');if(u)A.openExternal(u).catch(e=>{console.warn('External browser failed:',e);showEmbeddedWeb(u,state.embeddedTitle||'Link',{allowBrowser:false})})});return;}
+  if(state.embeddedTitle && state.embeddedCanOpenExternal){setAction(0,'embeddedOpenBrowser','Open in browser','↗',()=>{const w=document.getElementById('schoologyWebview');const u=normalizeSchoologyWebUrl(w?.getURL?.()||'');if(u)A.openExternal(u).catch(e=>{console.warn('External browser failed:',e);showEmbeddedWeb(u,state.embeddedTitle||'Link',{allowBrowser:false})})});return;}
   if(state.assignmentView&&state.assignmentLandscape&&!state.assignmentSubpage&&(state.assignmentTab==='info'||state.assignmentTab==='comments')){
-    if(state.assignmentAllowComments||state.assignmentCanSubmit){
-      slot.innerHTML=`<button id="assignmentPlus" class="iconButton toolbarImageButton" aria-label="Assignment actions">${officialIcon('ic_action_new.png','')}</button>`;
-      document.getElementById('assignmentPlus')?.addEventListener('click',showAssignmentActionMenu);
-    }
-  }else if(state.assignmentView&&state.assignmentTab==='comments'&&!state.assignmentSubpage){
-    slot.innerHTML=`<button id="assignmentPlus" class="iconButton toolbarImageButton" aria-label="Post comment">${officialIcon('ic_action_new.png','')}</button>`;
-    document.getElementById('assignmentPlus')?.addEventListener('click',()=>openAssignmentCommentComposer(state.assignmentView.sectionId,state.assignmentView.assignmentId,'0'));
-  }else if(state.assignmentView&&state.assignmentCanSubmit&&state.assignmentTab==='submit'&&!state.assignmentIsTeacher&&!state.assignmentSubpage){
-    slot.innerHTML='<button id="assignmentPlus" class="iconButton toolbarImageButton" aria-label="Submit assignment"><img src="../assets/icons/ic_action_new.png" alt=""></button>';
-    document.getElementById('assignmentPlus')?.addEventListener('click',()=>showSubmissionMenu());
-  }else if(state.assignmentView&&state.assignmentIsTeacher&&state.assignmentSubpage==='teacherSubmission'){
-    slot.innerHTML='<button id="assignmentSaveGrade" class="iconButton" aria-label="Save grade">✓</button>';
-    document.getElementById('assignmentSaveGrade')?.addEventListener('click',()=>document.getElementById('saveTeacherGrade')?.click());
-  }else if(state.courseView&&!state.assignmentView&&!state.embeddedTitle&&!state.currentGroup&&!state.profileUser&&state.courseTab==='updates'){
-    slot.innerHTML='<button id="courseUpdatePlus" class="iconButton toolbarImageButton" aria-label="Post update"><img src="../assets/icons/ic_action_new.png" alt=""></button>';
-    document.getElementById('courseUpdatePlus')?.addEventListener('click',()=>state.selectedCourse&&openCourseUpdateComposer(state.selectedCourse));
-  }else if(state.courseView&&!state.assignmentView&&!state.embeddedTitle&&!state.currentGroup&&!state.profileUser&&state.courseTab==='materials'){
-  }else if(state.tab==='messages'&&!state.courseView&&!state.embeddedTitle&&!state.message){
-    slot.innerHTML='<button id="composeMessage" class="iconButton toolbarPlus" aria-label="Compose message">+</button>';
-    document.getElementById('composeMessage')?.addEventListener('click',()=>showComposeMessage());document.getElementById('joinGroup')?.addEventListener('click',showJoinGroupDialog);
-  }
+    if(state.assignmentAllowComments||state.assignmentCanSubmit)setAction(0,'assignmentPlus','Assignment actions',officialIcon('ic_action_new.png',''),showAssignmentActionMenu);
+  }else if(state.assignmentView&&state.assignmentTab==='comments'&&!state.assignmentSubpage){setAction(0,'assignmentPlus','Post comment',officialIcon('ic_action_new.png',''),()=>openAssignmentCommentComposer(state.assignmentView.sectionId,state.assignmentView.assignmentId,'0'));
+  }else if(state.assignmentView&&state.assignmentCanSubmit&&state.assignmentTab==='submit'&&!state.assignmentIsTeacher&&!state.assignmentSubpage){setAction(0,'assignmentPlus','Submit assignment','<img src="../assets/icons/ic_action_new.png" alt="">',()=>showSubmissionMenu());
+  }else if(state.assignmentView&&state.assignmentIsTeacher&&state.assignmentSubpage==='teacherSubmission'){setAction(0,'assignmentSaveGrade','Save grade','✓',()=>document.getElementById('saveTeacherGrade')?.click());
+  }else if(state.courseView&&!state.assignmentView&&!state.embeddedTitle&&!state.currentGroup&&!state.profileUser&&state.courseTab==='updates'){setAction(0,'courseUpdatePlus','Post update','<img src="../assets/icons/ic_action_new.png" alt="">',()=>state.selectedCourse&&openCourseUpdateComposer(state.selectedCourse));
+  }else if(state.tab==='messages'&&!state.courseView&&!state.embeddedTitle&&!state.message){setAction(0,'composeMessage','Compose message','+',()=>showComposeMessage());}
 }
 
 function navigateBack(){
@@ -1180,9 +1134,9 @@ async function loadCourseApps(course,targetEl){
   const sid=course.id||course.section_id||course.sectionId;
   const x=await A.api({path:`v2/sections/${sid}/applications`,params:{}});
   const apps=x?.['@extra']||x.extra||x.data?.['@extra']||x.data?.extra||[];
-  el.innerHTML=apps.length?`<div class="courseAppList" data-liquid-glass-root>${apps.map((a,i)=>{
+  el.innerHTML=apps.length?`<div class="courseAppList">${apps.map((a,i)=>{
     const title=a.title||a.name||'Course App', logo=normalizeImageUrl(a.logoUrl||a.logo_url||a.logo||'');
-    return `<button class="courseAppRow" data-app-index="${i}" data-liquid-glass data-config='{"cornerRadius":10,"blurAmount":0.08,"refraction":0.12,"tintStrength":0.10,"edgeHighlight":0.03,"shadowOpacity":0.12,"opacity":0.92,"button":true}'>
+    return `<button class="courseAppRow" data-app-index="${i}">
       <span class="courseAppIcon">${logo?`<img data-course-image-url="${esc(logo)}" alt="" style="display:none">`:''}<span class="courseAppFallback"><img src="../assets/icons/ic_resourceapps.png" alt=""></span></span>
       <span><b>${esc(title)}</b></span><span>›</span>
     </button>`;
@@ -1963,7 +1917,7 @@ document.querySelectorAll('[data-notification-index]').forEach(b=>b.onclick=()=>
     c.innerHTML=`<section class="peopleAndroidPage"><div class="peopleList">${rows||'<div class="empty">No people found.</div>'}</div></section>`;
     document.querySelectorAll('[data-person-index]').forEach(b=>b.onclick=()=>{const u=window.__schoologyPeople[+b.dataset.personIndex];state.profileUser=u;state.tab='profile';state.profileTab='updates';state.toolbarTitle='Profile';render();loadTab()});
   }else if(state.tab==='settings'){
-    c.innerHTML=`<section class="settingsPage" data-liquid-glass-root><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":12,"zRadius":10,"blurAmount":0.10,"refraction":0.10,"opacity":0.88,"edgeHighlight":0.025,"shadowOpacity":0.12}'><h2>Notification Settings</h2><label class="settingRow"><span><b>Notifications</b><small id="notifSummary">Enabled</small></span><input type="checkbox" id="notifToggle" checked></label><button class="settingRow settingButton"><span><b>Ringtone</b><small>Set Notification Ringtone</small></span><span>›</span></button><label class="settingRow"><span><b>Vibrate</b><small>Vibrate on incoming notifications</small></span><input type="checkbox" checked></label><label class="settingRow"><span><b>Phone LED</b><small>Flash LED on notifications</small></span><input type="checkbox" checked></label></div><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":12,"zRadius":10,"blurAmount":0.10,"refraction":0.10,"opacity":0.88,"edgeHighlight":0.025,"shadowOpacity":0.12}'><h2>Account Settings</h2><button id="accountInfo" class="settingRow settingButton"><span><b>Account Info</b></span><span>›</span></button></div><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":12,"zRadius":10,"blurAmount":0.10,"refraction":0.10,"opacity":0.88,"edgeHighlight":0.025,"shadowOpacity":0.12}'><button id="checkForUpdates" class="settingRow settingButton"><span><b>Check for Updates</b><small>Check for a newer Schoology desktop port</small></span><span>›</span></button><button id="trySchoologyClassic" class="settingRow settingButton"><span><b>Try Schoology Classic</b><small>Install the latest classic Schoology Desktop Port</small></span><span>›</span></button><label class="settingRow"><span><b>Window Controls Overlay</b><small>Place native window controls over the Schoology app bar (restart required)</small></span><input type="checkbox" id="windowChromeOverlayToggle" ${state.windowChromeOverlay?'checked':''}></label></div><div class="settingsVersion">Version: 2026.06.0-port.104</div></section>`;
+    c.innerHTML=`<section class="settingsPage" data-liquid-glass-root><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":12,"zRadius":10,"blurAmount":0.10,"refraction":0.10,"opacity":0.88,"edgeHighlight":0.025,"shadowOpacity":0.12}'><h2>Notification Settings</h2><label class="settingRow"><span><b>Notifications</b><small id="notifSummary">Enabled</small></span><input type="checkbox" id="notifToggle" checked></label><button class="settingRow settingButton"><span><b>Ringtone</b><small>Set Notification Ringtone</small></span><span>›</span></button><label class="settingRow"><span><b>Vibrate</b><small>Vibrate on incoming notifications</small></span><input type="checkbox" checked></label><label class="settingRow"><span><b>Phone LED</b><small>Flash LED on notifications</small></span><input type="checkbox" checked></label></div><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":12,"zRadius":10,"blurAmount":0.10,"refraction":0.10,"opacity":0.88,"edgeHighlight":0.025,"shadowOpacity":0.12}'><h2>Account Settings</h2><button id="accountInfo" class="settingRow settingButton"><span><b>Account Info</b></span><span>›</span></button></div><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":12,"zRadius":10,"blurAmount":0.10,"refraction":0.10,"opacity":0.88,"edgeHighlight":0.025,"shadowOpacity":0.12}'><button id="checkForUpdates" class="settingRow settingButton"><span><b>Check for Updates</b><small>Check for a newer Schoology desktop port</small></span><span>›</span></button><button id="trySchoologyClassic" class="settingRow settingButton"><span><b>Try Schoology Classic</b><small>Install the latest classic Schoology Desktop Port</small></span><span>›</span></button><label class="settingRow"><span><b>Window Controls Overlay</b><small>Place native window controls over the Schoology app bar (restart required)</small></span><input type="checkbox" id="windowChromeOverlayToggle" ${state.windowChromeOverlay?'checked':''}></label></div><div class="settingsVersion">Version: 2026.06.0-port.106</div></section>`;
     document.getElementById('notifToggle')?.addEventListener('change',e=>{document.getElementById('notifSummary').textContent=e.target.checked?'Enabled':'Disabled'});
     document.getElementById('accountInfo')?.addEventListener('click',async()=>{try{await A.prepareWebSession();state.embeddedReturn={tab:'settings',title:'Settings'};showEmbeddedWeb('https://app.schoology.com/settings/account','Account Info',{allowBrowser:false,accountInfo:true})}catch(e){alert(e.message)}});
     document.getElementById('checkForUpdates')?.addEventListener('click',async()=>{const b=document.getElementById('checkForUpdates');if(b){b.disabled=true;b.classList.add('downloadBusy');b.querySelector('.settingProgress')?.remove();b.insertAdjacentHTML('beforeend','<span class="settingProgress"><img src="../assets/android_loading_spinner_72.gif" alt=""></span>');}try{const u=await A.checkForUpdates(true);if(u?.available)showUpdateDialog(u);else showAppDialog('Up to date','You are using the latest available Schoology Desktop Port release.')}catch(e){showAppDialog('Unable to check for updates',e.message||String(e))}finally{if(b){b.disabled=false;b.classList.remove('downloadBusy');b.querySelector('.settingProgress')?.remove()}}});
@@ -2046,7 +2000,7 @@ async function loadHomeTab(){
     // native equivalent so Chromium/WebView sizing cannot leave a blank bottom area.
     const uid=state.auth?.userId||state.auth?.user?.id;
     c.classList.remove('embeddedContentActive');c.classList.add('dashboardContentActive');
-    c.innerHTML=`<section class="nativeCourseDashboard"><div class="dashboardOfficialLoading" id="dashboardOfficialLoading"><img src="../assets/sgy_loading.gif" alt=""></div><div id="nativeDashboardCourses" class="nativeDashboardCourses" data-liquid-glass-root></div></section>`;
+    c.innerHTML=`<section class="nativeCourseDashboard"><div class="dashboardOfficialLoading" id="dashboardOfficialLoading"><img src="../assets/sgy_loading.gif" alt=""></div><div id="nativeDashboardCourses" class="nativeDashboardCourses"></div></section>`;
     const loader=document.getElementById('dashboardOfficialLoading'),list=document.getElementById('nativeDashboardCourses');
     try{
       const x=uid?await A.api({path:`users/${uid}/sections`,params:{limit:100}}):{};
@@ -2057,7 +2011,7 @@ async function loadHomeTab(){
         list.innerHTML=arr.map((course,i)=>{
           const title=courseTitleOf(course),section=sectionTitleOf(course),school=schoolNames[i]||'';
           const image=normalizeImageUrl(course.profile_url||course.profileUrl||course.course_profile_url||course.courseProfileUrl||course.course_theme||course.courseTheme||course.image||course.course_image||'');
-          return `<button class="nativeDashboardCourse" data-dashboard-course="${i}" data-liquid-glass data-config='{"cornerRadius":12,"blurAmount":0.10,"refraction":0.14,"tintStrength":0.12,"edgeHighlight":0.04,"shadowOpacity":0.14,"opacity":0.90,"button":true}'><div class="nativeDashboardCourseImage" style="height:130px;min-height:130px;max-height:130px;">${image?`<img data-course-image-url="${esc(image)}" alt="" style="display:none;width:100%;height:130px;min-height:130px;max-height:130px;object-fit:cover;">`:''}<span class="dashboardCourseFallback" style="display:${image?'none':'flex'}">${esc(title.charAt(0)||'C')}</span></div><div class="nativeDashboardCourseInfo"><b>${esc(title)}</b>${section?`<span class="nativeDashboardCoursePeriod">${esc(section)}</span>`:''}${school?`<small>${esc(school)}</small>`:''}</div></button>`;
+          return `<button class="nativeDashboardCourse" data-dashboard-course="${i}"><div class="nativeDashboardCourseImage" style="height:130px;min-height:130px;max-height:130px;">${image?`<img data-course-image-url="${esc(image)}" alt="" style="display:none;width:100%;height:130px;min-height:130px;max-height:130px;object-fit:cover;">`:''}<span class="dashboardCourseFallback" style="display:${image?'none':'flex'}">${esc(title.charAt(0)||'C')}</span></div><div class="nativeDashboardCourseInfo"><b>${esc(title)}</b>${section?`<span class="nativeDashboardCoursePeriod">${esc(section)}</span>`:''}${school?`<small>${esc(school)}</small>`:''}</div></button>`;
         }).join('');
         await hydrateCourseImages(list);
         list.querySelectorAll('[data-dashboard-course]').forEach(b=>b.onclick=()=>showCourse(arr[+b.dataset.dashboardCourse],'materials'));
@@ -2157,4 +2111,4 @@ async function startSchoologyStartup(retry=false){
 }
 startSchoologyStartup();
 
-A.onUpdateAvailable?.(u=>{if(!u?.url)return;let dlg=showAppDialog('Downloading update','Downloading…',[]);const msg=dlg?.querySelector('.appDialogMessage');if(msg)msg.innerHTML='<div class="updateDownloadProgressWrap"><div class="updateDownloadProgressTrack"><div id="autoUpdateDownloadProgressBar" class="updateDownloadProgressBar" style="width:0%"></div></div><div id="autoUpdateDownloadProgressText" class="updateDownloadProgressText">Downloading…</div></div>';const off=A.onUpdateDownloadProgress?.(d=>{const bar=document.getElementById('autoUpdateDownloadProgressBar'),txt=document.getElementById('autoUpdateDownloadProgressText');if(bar&&d?.percent!=null)bar.style.width=d.percent+'%';if(txt)txt.textContent=d?.percent!=null?`Downloading… ${d.percent}%`:'Downloading…';});A.installUpdate(u).catch(e=>{off?.();dlg?.classList.remove('open');showAppDialog('Unable to install update',e.message||String(e))});});
+A.onUpdateAvailable?.(u=>{if(!u?.url)return;let dlg=showAppDialog('Downloading update','Downloading…',[]);const msg=dlg?.querySelector('.appDialogMessage');if(msg)msg.innerHTML='<div class="updateDownloadProgressWrap"><div class="updateDownloadProgressTrack"><div id="autoUpdateDownloadProgressBar" class="updateDownloadProgressBar" style="width:0%"></div></div><div id="autoUpdateDownloadProgressText" class="updateDownloadProgressText">Downloading…</div></div>';const off=A.onUpdateDownloadProgress?.(d=>{const bar=document.getElementById('autoUpdateDownloadProgressBar'),txt=document.getElementById('autoUpdateDownloadProgressText');if(bar&&d?.percent!=null)bar.style.width=d.percent+'%';if(txt)txt.textContent=d?.percent!=null?`Downloading… ${d.percent}%`:'Downloading…';});A.installUpdate(u).catch(e=>{off?.();dlg?.classList.remove('open');document.getElementById('appDialogGlass')?.classList.remove('open');showAppDialog('Unable to install update',e.message||String(e))});});

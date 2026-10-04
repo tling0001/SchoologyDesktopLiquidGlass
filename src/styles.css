@@ -1224,41 +1224,31 @@ html[data-electron-platform="win32"][data-window-controls-overlay="true"] .toolb
 .appDialog[data-liquid-glass] > canvas{z-index:0!important;opacity:.28!important;pointer-events:none!important;}
 .appDialog[data-liquid-glass] > :not(canvas){position:relative;z-index:1;}
 
-/* v105: LiquidGlass must not disable the drawer's scroll viewport. */
-.drawer[data-liquid-glass]{overflow:auto!important;overscroll-behavior:contain!important;}
 
-/* v105: compact LiquidGlass action buttons preserve the Android 48dp hit target
-   while adding the requested glass treatment without turning them into pills. */
-.toolbar[data-liquid-glass] > .iconButton[data-liquid-glass],
-.toolbar[data-liquid-glass] > .toolbarActionSlot .toolbarImageButton[data-liquid-glass],
-.drawerSubHeader > .drawerBack[data-liquid-glass],
-.drawerSubHeader > .drawerHeaderAction[data-liquid-glass],
-#homeCreatePlus[data-liquid-glass]{
-  border-radius:22px!important;
-  background:rgba(255,255,255,.045)!important;
-  color:#fff!important;
-  border:1px solid rgba(255,255,255,.10)!important;
-  box-shadow:none!important;
-  overflow:visible!important;
-}
-.toolbar[data-liquid-glass] > .iconButton[data-liquid-glass]:hover,
-.toolbar[data-liquid-glass] > .toolbarActionSlot .toolbarImageButton[data-liquid-glass]:hover,
-.drawerSubHeader > .drawerBack[data-liquid-glass]:hover,
-.drawerSubHeader > .drawerHeaderAction[data-liquid-glass]:hover,
-#homeCreatePlus[data-liquid-glass]:hover{background:rgba(255,255,255,.10)!important;}
+/* v106: LiquidGlass maintainer-demo structure — toolbar is the root, its blue
+   surface is captured as a sibling, and every action button is a direct glass child. */
+.toolbar[data-liquid-glass-root]{position:relative!important;overflow:visible!important;background:transparent!important;isolation:isolate!important;display:flex!important;align-items:center!important;}
+.toolbar[data-liquid-glass-root] .toolbarSurface{position:absolute!important;inset:0!important;background:#002137!important;z-index:0!important;pointer-events:none!important;}
+.toolbar[data-liquid-glass-root] > .toolbarTitle{position:relative!important;z-index:2!important;}
+.toolbar[data-liquid-glass-root] > .toolbarGlassButton{position:relative!important;z-index:3!important;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;flex:0 0 44px!important;border:0!important;border-radius:50%!important;background:transparent!important;color:#fff!important;overflow:visible!important;}
+.toolbar[data-liquid-glass-root] > .toolbarGlassButton > canvas{z-index:-1!important;opacity:1!important;pointer-events:none!important;}
+.toolbar[data-liquid-glass-root] > .toolbarGlassButton:hover,
+.toolbar[data-liquid-glass-root] > .toolbarGlassButton:focus,
+.toolbar[data-liquid-glass-root] > .toolbarGlassButton:active{background:transparent!important;}
+.toolbarActionButton[hidden]{display:none!important;}
+.toolbar[data-liquid-glass-root] .toolbarActionButton{margin-left:4px!important;}
 
-/* Dashboard cards retain the Android rectangular-card language while receiving
-   LiquidGlass depth/refraction. */
-.nativeDashboardCourse[data-liquid-glass],
-.courseAppRow[data-liquid-glass]{
-  border-radius:12px!important;
-  overflow:visible!important;
-  background:rgba(255,255,255,.82)!important;
-}
-.nativeDashboardCourse[data-liquid-glass] > canvas,
-.courseAppRow[data-liquid-glass] > canvas{opacity:.30!important;pointer-events:none!important;z-index:-1!important;}
-.nativeDashboardCourse[data-liquid-glass] > :not(canvas),
-.courseAppRow[data-liquid-glass] > :not(canvas){position:relative;z-index:1;}
+/* Settings: let the rounded glass group clip the white rows into its rounded outline. */
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass]{background:rgba(255,255,255,.10)!important;border:1px solid rgba(255,255,255,.34)!important;box-shadow:0 2px 12px rgba(0,0,0,.10)!important;overflow:hidden!important;border-radius:12px!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass] .settingRow{background:rgba(255,255,255,.58)!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass] .settingRow:first-of-type{border-top:0!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass] > canvas{opacity:.9!important;}
 
-/* Rounded settings/dialog glass surfaces. */
-.settingsGroup[data-liquid-glass],.appDialog[data-liquid-glass]{border-radius:12px!important;}
+/* True glass dialog: the glass itself is a direct child of body so it can sample
+   the shell behind it. The overlay supplies only the dimming layer. */
+.appDialogOverlay{background:rgba(0,0,0,.22)!important;pointer-events:none!important;}
+.appDialogOverlay.open{display:block!important;}
+.appDialog[data-liquid-glass]{position:fixed!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;background:transparent!important;border:1px solid rgba(255,255,255,.28)!important;box-shadow:none!important;overflow:hidden!important;z-index:1002!important;color:#263238!important;}
+.appDialog[data-liquid-glass] > canvas{z-index:0!important;opacity:1!important;pointer-events:none!important;}
+.appDialog[data-liquid-glass] > :not(canvas){position:relative!important;z-index:1!important;}
+.appDialog[data-liquid-glass] .appDialogActions button{background:rgba(255,255,255,.20)!important;border:1px solid rgba(255,255,255,.30)!important;border-radius:999px!important;}
