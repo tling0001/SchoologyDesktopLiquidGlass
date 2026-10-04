@@ -1199,18 +1199,27 @@ html[data-electron-platform="win32"][data-window-controls-overlay="true"] .toolb
    Android-style shell surfaces; layout, controls, and content remain native. */
 .toolbar[data-liquid-glass],
 .drawer[data-liquid-glass]{
-  background:rgba(0,33,55,.82)!important;
-  border:0;
+  background:#002137!important;
+  border:0!important;
   -webkit-backdrop-filter:none;
   backdrop-filter:none;
 }
-.toolbar[data-liquid-glass]{
-  box-shadow:0 2px 7px rgba(0,0,0,.24)!important;
-}
-.drawer[data-liquid-glass]{
-  box-shadow:4px 0 18px rgba(0,0,0,.28)!important;
-}
+.toolbar[data-liquid-glass]{box-shadow:0 2px 5px rgba(0,0,0,.24)!important;}
+.drawer[data-liquid-glass]{box-shadow:3px 0 12px rgba(0,0,0,.24)!important;}
 .toolbar[data-liquid-glass] > canvas,
-.drawer[data-liquid-glass] > canvas{z-index:0!important;}
+.drawer[data-liquid-glass] > canvas{z-index:0!important;opacity:.16!important;pointer-events:none!important;}
 .toolbar[data-liquid-glass] > :not(canvas),
 .drawer[data-liquid-glass] > :not(canvas){position:relative;z-index:1;}
+.drawer[data-liquid-glass] .drawerItem:hover,
+.drawer[data-liquid-glass] .profileRow:hover,
+.drawer[data-liquid-glass] .courseSubItem:hover{background:rgba(255,255,255,.075)!important;color:#fff!important;}
+.drawer[data-liquid-glass] .drawerDivider{height:1px!important;background:rgba(255,255,255,.12)!important;margin:0!important;}
+.drawer[data-liquid-glass] .profileRow{border-bottom:1px solid rgba(255,255,255,.12)!important;}
+.drawer[data-liquid-glass] .drawerSubHeader{border-bottom:1px solid rgba(255,255,255,.12)!important;}
+.settingsPage[data-liquid-glass-root]{padding:12px 12px 28px!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass]{background:rgba(255,255,255,.88)!important;border:1px solid rgba(255,255,255,.72)!important;box-shadow:0 2px 8px rgba(0,0,0,.08)!important;overflow:visible!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass] > canvas{z-index:0!important;opacity:.28!important;pointer-events:none!important;}
+.settingsPage[data-liquid-glass-root] .settingsGroup[data-liquid-glass] > :not(canvas){position:relative;z-index:1;}
+.appDialog[data-liquid-glass]{background:rgba(255,255,255,.88)!important;border:1px solid rgba(255,255,255,.8)!important;overflow:visible!important;}
+.appDialog[data-liquid-glass] > canvas{z-index:0!important;opacity:.28!important;pointer-events:none!important;}
+.appDialog[data-liquid-glass] > :not(canvas){position:relative;z-index:1;}

@@ -1,5 +1,5 @@
 const app=document.getElementById('app');
-let liquidGlassInstance=null;
+let liquidGlassInstances=[];
 let liquidGlassGeneration=0;
 let liquidGlassImportPromise=null;
 function loadLiquidGlass(){
@@ -8,40 +8,27 @@ function loadLiquidGlass(){
 }
 function destroyLiquidGlass(){
   liquidGlassGeneration++;
-  if(liquidGlassInstance){try{liquidGlassInstance.destroy()}catch{} liquidGlassInstance=null;}
+  for(const instance of liquidGlassInstances){try{instance.destroy()}catch{}}
+  liquidGlassInstances=[];
 }
-async function refreshLiquidGlass(){
-  const generation=liquidGlassGeneration;
-  const root=document.querySelector('.shell');
+async function refreshLiquidGlassRoot(root){
   if(!root)return;
+  const generation=liquidGlassGeneration;
   const glassElements=[...root.querySelectorAll(':scope > [data-liquid-glass]')];
   if(!glassElements.length)return;
   try{
     const {LiquidGlass}=await loadLiquidGlass();
-    await new Promise(requestAnimationFrame);
     if(generation!==liquidGlassGeneration||!document.documentElement.contains(root))return;
-    const instance=await LiquidGlass.init({
-      root,
-      glassElements,
-      defaults:{
-        blurAmount:.22,
-        refraction:.34,
-        chromAberration:.025,
-        edgeHighlight:.14,
-        specular:.12,
-        fresnel:.55,
-        distortion:.015,
-        shadowOpacity:.22,
-        shadowSpread:8,
-        shadowOffsetY:1,
-        saturation:.04,
-        brightness:.015
-      }
-    });
+    const instance=await LiquidGlass.init({root,glassElements});
     if(generation!==liquidGlassGeneration||!document.documentElement.contains(root)){instance.destroy();return;}
-    liquidGlassInstance=instance;
+    liquidGlassInstances.push(instance);
   }catch(e){console.warn('Schoology LiquidGlass initialization failed:',e);}
 }
+async function refreshLiquidGlass(){
+  await refreshLiquidGlassRoot(document.querySelector('.shell'));
+  for(const root of document.querySelectorAll('[data-liquid-glass-root]')) await refreshLiquidGlassRoot(root);
+}
+
 
 const A=window.schoology;
 if(!A){
@@ -56,7 +43,7 @@ let loadTabGeneration=0;
 let state={screen:'login',school:null,schools:[],q:'',loading:false,error:'',auth:null,user:null,tab:'home',homeTab:'recent',searchToken:0,drawerPage:null,message:null,messageTab:'inbox',messageFolder:'inbox',messageThread:null,composeMessage:false,selectedCourse:null,mobileMe:null,courseDashboardEnabled:false,preferredHomepage:'recent',toolbarTitle:'Home',embeddedReturn:null,embeddedCanOpenExternal:false,homeUpcomingReturn:false,assignmentTab:'info',assignmentCanSubmit:false,assignmentIsTeacher:false,assignmentSubpage:null,submissionMenu:false,assignmentAllowComments:false,assignmentLandscape:false,folderId:0,folderStack:[],courseView:null,activityUsers:{},activityComments:null,currentFolderId:0,currentGroup:null,profileUser:null,profileTab:'updates',groupTab:'updates',resourceCollection:null,windowChromeOverlay:false,homeCreateMenu:false,calendarDate:null,calendarSelectedDate:null,calendarCanCreate:false,calendarEvents:[],calendarEventsMonth:'',calendarTab:'calendar',calendarUpcomingEvents:null,groupJoinOpen:false,embeddedTheme:'',profileReturn:null};
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function alert(message){showAppDialog('Schoology',String(message));}
-function showAppDialog(title,message,actions=[{label:'OK',action:null}]){let el=document.getElementById('appDialog');if(!el){el=document.createElement('div');el.id='appDialog';el.className='appDialogOverlay';document.body.appendChild(el)}el.innerHTML=`<div class="appDialog" role="dialog" aria-modal="true"><h2>${esc(title)}</h2><div class="appDialogMessage">${esc(message)}</div><div class="appDialogActions">${actions.map((a,i)=>`<button data-dialog-action="${i}">${esc(a.label)}</button>`).join('')}</div></div>`;el.classList.add('open');el.querySelectorAll('[data-dialog-action]').forEach((b,i)=>b.onclick=async()=>{el.classList.remove('open');const fn=actions[i]?.action;if(fn)await fn()});return el}
+function showAppDialog(title,message,actions=[{label:'OK',action:null}]){let el=document.getElementById('appDialog');if(!el){el=document.createElement('div');el.id='appDialog';el.className='appDialogOverlay';document.body.appendChild(el)}el.innerHTML=`<div class="appDialog" data-liquid-glass data-config='{"cornerRadius":16,"blurAmount":0.16,"refraction":0.12,"edgeHighlight":0.03,"shadowOpacity":0.18,"opacity":0.94}' role="dialog" aria-modal="true"><h2>${esc(title)}</h2><div class="appDialogMessage">${esc(message)}</div><div class="appDialogActions">${actions.map((a,i)=>`<button data-dialog-action="${i}">${esc(a.label)}</button>`).join('')}</div></div>`;el.classList.add('open');el.setAttribute('data-liquid-glass-root','');refreshLiquidGlassRoot(el);el.querySelectorAll('[data-dialog-action]').forEach((b,i)=>b.onclick=async()=>{el.classList.remove('open');const fn=actions[i]?.action;if(fn)await fn()});return el}
 function showUpdateDialog(u){
   showAppDialog('Update available',`Schoology Desktop Port v${u.version} is available. The update will download only after you choose Install update.`,[{label:'Later',action:null},{label:'Install update',action:async()=>{
     const dlg=showAppDialog('Downloading update','Downloading…',[]);
@@ -64,6 +51,15 @@ function showUpdateDialog(u){
     if(msg)msg.innerHTML='<div class="updateDownloadProgressWrap"><div class="updateDownloadProgressTrack"><div id="updateDownloadProgressBar" class="updateDownloadProgressBar" style="width:0%"></div></div><div id="updateDownloadProgressText" class="updateDownloadProgressText">Downloading…</div></div>';
     const off=window.schoology?.onUpdateDownloadProgress?.(d=>{const bar=document.getElementById('updateDownloadProgressBar'),txt=document.getElementById('updateDownloadProgressText');if(bar&&d?.percent!=null)bar.style.width=d.percent+'%';if(txt)txt.textContent=d?.total?`Downloading… ${d.percent||0}%`:'Downloading…';});
     try{await A.installUpdate(u);off?.()}catch(e){off?.();dlg?.classList.remove('open');showAppDialog('Unable to install update',e.message||String(e))}
+  }}]);
+}
+function showClassicUpdateDialog(u){
+  showAppDialog('Try Schoology Classic',`The latest Schoology Classic Desktop Port release (${esc(u.versionLabel||u.tag||'latest')}) will download and install.`,[{label:'Cancel',action:null},{label:'Install classic',action:async()=>{
+    const dlg=showAppDialog('Downloading Schoology Classic','Downloading…',[]);
+    const msg=dlg?.querySelector('.appDialogMessage');
+    if(msg)msg.innerHTML='<div class="updateDownloadProgressWrap"><div class="updateDownloadProgressTrack"><div id="updateDownloadProgressBar" class="updateDownloadProgressBar" style="width:0%"></div></div><div id="updateDownloadProgressText" class="updateDownloadProgressText">Downloading…</div></div>';
+    const off=window.schoology?.onUpdateDownloadProgress?.(d=>{const bar=document.getElementById('updateDownloadProgressBar'),txt=document.getElementById('updateDownloadProgressText');if(bar&&d?.percent!=null)bar.style.width=d.percent+'%';if(txt)txt.textContent=d?.total?`Downloading… ${d.percent||0}%`:'Downloading…'});
+    try{await A.installUpdate(u);off?.()}catch(e){off?.();dlg?.classList.remove('open');showAppDialog('Unable to install Schoology Classic',e.message||String(e))}
   }}]);
 }
 
@@ -126,9 +122,9 @@ function shell(){
    </div>`:'';
  const drawerList=drawerItems.map(([id,label,icon],i)=>`${i===3?'<div class="drawerDivider"></div>':''}${i===9?'<div class="drawerDivider"></div>':''}${drawerItemMarkup(id,label,icon)}`).join('');
  return `<div class="shell">
- <header class="toolbar" data-liquid-glass data-config='{"cornerRadius":0,"blurAmount":0.18,"refraction":0.30}'>${state.assignmentView||state.embeddedTitle?`<button id="toolbarBack" class="iconButton" aria-label="Back">‹</button>`:`<button id="menuButton" class="iconButton" aria-label="Navigation menu">${menuImg}</button>`}<span class="toolbarTitle">${esc(state.toolbarTitle||'Home')}</span><span id="toolbarActionSlot" class="toolbarActionSlot"></span></header>
+ <header class="toolbar" data-liquid-glass data-config='{"cornerRadius":0,"blurAmount":0.08,"refraction":0.10,"tintStrength":0.45,"brightness":-0.08,"edgeHighlight":0.02,"shadowOpacity":0.12,"opacity":0.34}'>${state.assignmentView||state.embeddedTitle?`<button id="toolbarBack" class="iconButton" aria-label="Back">‹</button>`:`<button id="menuButton" class="iconButton" aria-label="Navigation menu">${menuImg}</button>`}<span class="toolbarTitle">${esc(state.toolbarTitle||'Home')}</span><span id="toolbarActionSlot" class="toolbarActionSlot"></span></header>
  <main id="content"><div class="loading"><img class="androidInlineSpinner" src="../assets/android_loading_spinner_72.gif" alt=""><span>Loading…</span></div></main>
- <div id="drawerShade" class="drawerShade ${drawerPage?'submenuShade':''}"></div><aside id="drawer" class="drawer ${drawerPage?'drawerSubMode':''}" data-liquid-glass data-config='{"cornerRadius":0,"blurAmount":0.24,"refraction":0.34}'>
+ <div id="drawerShade" class="drawerShade ${drawerPage?'submenuShade':''}"></div><aside id="drawer" class="drawer ${drawerPage?'drawerSubMode':''}" data-liquid-glass data-config='{"cornerRadius":0,"blurAmount":0.10,"refraction":0.12,"tintStrength":0.55,"brightness":-0.10,"edgeHighlight":0.02,"shadowOpacity":0.12,"opacity":0.28}'>
    ${drawerPage||`<button id="drawerProfile" class="profileRow" aria-label="Open profile"><span class="profileAvatarCircle"><img data-profile-drawer-image="1" src="../assets/icons/profile_default_website.png" alt=""></span><span>${esc(state.auth?.user?.name_display||state.auth?.user?.name||'Profile')}</span></button><div class="drawerList">${drawerList}</div>`}
  </aside>
  </div>`;
@@ -1937,10 +1933,19 @@ document.querySelectorAll('[data-notification-index]').forEach(b=>b.onclick=()=>
     c.innerHTML=`<section class="peopleAndroidPage"><div class="peopleList">${rows||'<div class="empty">No people found.</div>'}</div></section>`;
     document.querySelectorAll('[data-person-index]').forEach(b=>b.onclick=()=>{const u=window.__schoologyPeople[+b.dataset.personIndex];state.profileUser=u;state.tab='profile';state.profileTab='updates';state.toolbarTitle='Profile';render();loadTab()});
   }else if(state.tab==='settings'){
-    c.innerHTML=`<section class="settingsPage"><div class="settingsGroup"><h2>Notification Settings</h2><label class="settingRow"><span><b>Notifications</b><small id="notifSummary">Enabled</small></span><input type="checkbox" id="notifToggle" checked></label><button class="settingRow settingButton"><span><b>Ringtone</b><small>Set Notification Ringtone</small></span><span>›</span></button><label class="settingRow"><span><b>Vibrate</b><small>Vibrate on incoming notifications</small></span><input type="checkbox" checked></label><label class="settingRow"><span><b>Phone LED</b><small>Flash LED on notifications</small></span><input type="checkbox" checked></label></div><div class="settingsGroup"><h2>Account Settings</h2><button id="accountInfo" class="settingRow settingButton"><span><b>Account Info</b></span><span>›</span></button></div><div class="settingsGroup"><button id="checkForUpdates" class="settingRow settingButton"><span><b>Check for Updates</b><small>Check for a newer Schoology desktop port</small></span><span>›</span></button><label class="settingRow"><span><b>Window Controls Overlay</b><small>Place native window controls over the Schoology app bar (restart required)</small></span><input type="checkbox" id="windowChromeOverlayToggle" ${state.windowChromeOverlay?'checked':''}></label></div><div class="settingsVersion">Version: 2026.06.0-port.97</div></section>`;
+    c.innerHTML=`<section class="settingsPage" data-liquid-glass-root><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":12,"zRadius":10,"blurAmount":0.10,"refraction":0.10,"opacity":0.88,"edgeHighlight":0.025,"shadowOpacity":0.12}'><h2>Notification Settings</h2><label class="settingRow"><span><b>Notifications</b><small id="notifSummary">Enabled</small></span><input type="checkbox" id="notifToggle" checked></label><button class="settingRow settingButton"><span><b>Ringtone</b><small>Set Notification Ringtone</small></span><span>›</span></button><label class="settingRow"><span><b>Vibrate</b><small>Vibrate on incoming notifications</small></span><input type="checkbox" checked></label><label class="settingRow"><span><b>Phone LED</b><small>Flash LED on notifications</small></span><input type="checkbox" checked></label></div><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":12,"zRadius":10,"blurAmount":0.10,"refraction":0.10,"opacity":0.88,"edgeHighlight":0.025,"shadowOpacity":0.12}'><h2>Account Settings</h2><button id="accountInfo" class="settingRow settingButton"><span><b>Account Info</b></span><span>›</span></button></div><div class="settingsGroup" data-liquid-glass data-config='{"cornerRadius":12,"zRadius":10,"blurAmount":0.10,"refraction":0.10,"opacity":0.88,"edgeHighlight":0.025,"shadowOpacity":0.12}'><button id="checkForUpdates" class="settingRow settingButton"><span><b>Check for Updates</b><small>Check for a newer Schoology desktop port</small></span><span>›</span></button><button id="trySchoologyClassic" class="settingRow settingButton"><span><b>Try Schoology Classic</b><small>Install the latest classic Schoology Desktop Port</small></span><span>›</span></button><label class="settingRow"><span><b>Window Controls Overlay</b><small>Place native window controls over the Schoology app bar (restart required)</small></span><input type="checkbox" id="windowChromeOverlayToggle" ${state.windowChromeOverlay?'checked':''}></label></div><div class="settingsVersion">Version: 2026.06.0-port.104</div></section>`;
     document.getElementById('notifToggle')?.addEventListener('change',e=>{document.getElementById('notifSummary').textContent=e.target.checked?'Enabled':'Disabled'});
     document.getElementById('accountInfo')?.addEventListener('click',async()=>{try{await A.prepareWebSession();state.embeddedReturn={tab:'settings',title:'Settings'};showEmbeddedWeb('https://app.schoology.com/settings/account','Account Info',{allowBrowser:false,accountInfo:true})}catch(e){alert(e.message)}});
     document.getElementById('checkForUpdates')?.addEventListener('click',async()=>{const b=document.getElementById('checkForUpdates');if(b){b.disabled=true;b.classList.add('downloadBusy');b.querySelector('.settingProgress')?.remove();b.insertAdjacentHTML('beforeend','<span class="settingProgress"><img src="../assets/android_loading_spinner_72.gif" alt=""></span>');}try{const u=await A.checkForUpdates(true);if(u?.available)showUpdateDialog(u);else showAppDialog('Up to date','You are using the latest available Schoology Desktop Port release.')}catch(e){showAppDialog('Unable to check for updates',e.message||String(e))}finally{if(b){b.disabled=false;b.classList.remove('downloadBusy');b.querySelector('.settingProgress')?.remove()}}});
+    document.getElementById('trySchoologyClassic')?.addEventListener('click',async()=>{
+      const b=document.getElementById('trySchoologyClassic');
+      if(b){b.disabled=true;b.classList.add('downloadBusy');b.querySelector('.settingProgress')?.remove();b.insertAdjacentHTML('beforeend','<span class="settingProgress"><img src="../assets/android_loading_spinner_72.gif" alt=""></span>');}
+      try{
+        const u=await A.checkForClassicUpdate();
+        showClassicUpdateDialog(u);
+      }catch(e){showAppDialog('Unable to get Schoology Classic',e.message||String(e))}
+      finally{if(b){b.disabled=false;b.classList.remove('downloadBusy');b.querySelector('.settingProgress')?.remove()}}
+    });
     document.getElementById('windowChromeOverlayToggle')?.addEventListener('change',async e=>{const checked=!!e.target.checked;try{await A.setWindowChromeMode(checked)}catch(err){e.target.checked=!checked;showAppDialog('Unable to change window controls',err.message||String(err))}});
   }
  }catch(e){if(generation!==loadTabGeneration||tabAtStart!==state.tab)return;c.innerHTML=`<div class="error apiError"><b>Schoology could not load this page.</b><br>${esc(e.message)}</div>`}

@@ -582,7 +582,8 @@ async function loginExternalSchool(info){
 }
 
 
-const UPDATE_REPO='tling0001/schoology-for-desktop-port';
+const UPDATE_REPO='tling0001/SchoologyDesktopLiquidGlass';
+const CLASSIC_UPDATE_REPO='tling0001/schoology-for-desktop-port';
 const UPDATE_INTERVAL_MS=12*60*60*1000, UPDATE_RETRY_MS=5*60*1000, UPDATE_STATE_FILE=path.join(stableUserData,'update-state.json');
 function readUpdateState(){try{return JSON.parse(fs.readFileSync(UPDATE_STATE_FILE,'utf8'))}catch{return {}}}
 function writeUpdateState(v){try{fs.mkdirSync(path.dirname(UPDATE_STATE_FILE),{recursive:true});fs.writeFileSync(UPDATE_STATE_FILE,JSON.stringify(v,null,2),'utf8')}catch{}}
@@ -592,28 +593,26 @@ async function sha256File(file){return await new Promise((resolve,reject)=>{cons
 function downloadUrl(url,target,totalHint=0){return new Promise((resolve,reject)=>{const get=(href,depth=0)=>{if(depth>8)return reject(new Error('Too many update redirects.'));const u=new URL(href);const req=https.request({hostname:u.hostname,path:u.pathname+u.search,method:'GET',headers:{'User-Agent':'Schoology-Desktop-Port-Updater','Accept':'application/octet-stream'}},res=>{const code=res.statusCode||0;if([301,302,303,307,308].includes(code)&&res.headers.location){res.resume();return get(new URL(res.headers.location,u).toString(),depth+1)}if(code<200||code>=300){res.resume();return reject(new Error(`Update download failed (HTTP ${code})`))}const headerTotal=Number(res.headers['content-length']||0);const expected=headerTotal||Number(totalHint||0);let received=0;const sendProgress=done=>{try{if(win&&!win.isDestroyed()){const percent=expected?Math.min(100,Math.round(received*100/expected)):null;win.webContents.send('update-download-progress',{received,total:expected||received,percent,done:!!done})}}catch{}};sendProgress(false);const out=fs.createWriteStream(target);res.on('data',d=>{received+=d.length;sendProgress(false)});res.pipe(out);out.on('finish',()=>out.close(()=>{if(expected&&received!==expected){try{fs.unlinkSync(target)}catch{};return reject(new Error(`Update download was incomplete (${received}/${expected} bytes).`))}sendProgress(true);resolve(target)}));out.on('error',e=>{try{out.close()}catch{};try{fs.unlinkSync(target)}catch{};reject(e)})});req.setTimeout(10*60*1000,()=>req.destroy(new Error('Update download timed out')));req.on('error',e=>{try{fs.unlinkSync(target)}catch{};reject(e)});req.end()};get(url)})}
 
 function updateAssetForPlatform(release){const assets=Array.isArray(release?.assets)?release.assets:[];const arch=process.arch;let wanted=[];if(process.platform==='win32')wanted=['Setup-x64.exe'];else if(process.platform==='darwin')wanted=[arch==='arm64'?'arm64.dmg':'x64.dmg'];else if(process.platform==='linux')wanted=[fs.existsSync('/usr/bin/rpm')&&!fs.existsSync('/usr/bin/dpkg')?'x86_64.rpm':'amd64.deb'];return assets.find(a=>wanted.some(s=>String(a.name||'').endsWith(s)))||null}
-async function checkForUpdates(force=false){const now=Date.now(),st=readUpdateState();if(!force&&st.lastSuccessfulCheck&&now-st.lastSuccessfulCheck<UPDATE_INTERVAL_MS)return {checked:false,available:false};if(!require('electron').net.isOnline())throw new Error('Computer is offline.');const release=await fetchJson(`https://api.github.com/repos/${UPDATE_REPO}/releases/latest`);const tag=String(release.tag_name||'');const remote=Number((tag.match(/(\d+)$/)||[])[1]||0),local=localReleaseNumber();if(!remote||remote<=local||release.draft||release.prerelease){writeUpdateState({lastSuccessfulCheck:now,lastRemoteTag:tag});return {checked:true,available:false,version:local};}const asset=updateAssetForPlatform(release);if(!asset)throw new Error('No compatible update package was found for this computer.');writeUpdateState({lastSuccessfulCheck:now,lastRemoteTag:tag});return {checked:true,available:true,version:remote,tag,assetName:asset.name,url:asset.browser_download_url,size:Number(asset.size||0),digest:asset.digest||null};}
-async function downloadAndVerifyUpdate(info){if(!info?.url)throw new Error('The update download URL is missing.');const tag=String(info.tag||'update').replace(/[^A-Za-z0-9._-]/g,'_');const name=String(info.assetName||path.basename(new URL(info.url).pathname)||'schoology-update').replace(/[^A-Za-z0-9._-]/g,'_');const tmp=path.join(app.getPath('temp'),`schoology-update-${tag}-${name}`);let valid=false;if(fs.existsSync(tmp)){try{if(info.size&&fs.statSync(tmp).size!==Number(info.size))throw new Error('size');if(info.digest&&/^sha256:/i.test(String(info.digest))){const actual=await sha256File(tmp);if(actual.toLowerCase()!==String(info.digest).split(':').pop().toLowerCase())throw new Error('digest')}valid=true}catch{try{fs.unlinkSync(tmp)}catch{}}}if(!valid)await downloadUrl(info.url,tmp,Number(info.size||0));if(info.size&&fs.statSync(tmp).size!==Number(info.size))throw new Error('Downloaded update size does not match GitHub release metadata.');if(info.digest&&/^sha256:/i.test(String(info.digest))){const actual=await sha256File(tmp);const expected=String(info.digest).split(':').pop().toLowerCase();if(actual.toLowerCase()!==expected){try{fs.unlinkSync(tmp)}catch{};throw new Error('Downloaded update failed its SHA-256 integrity check.');}}return tmp;}
-async function installUpdate(info){
-  const file=typeof info==='string'?info:await downloadAndVerifyUpdate(info);
-  if(!file||!fs.existsSync(file))throw new Error('The update installer is no longer available.');
-  if(process.platform==='win32'){
-    const {spawn}=require('child_process');
-    // Run the NSIS installer normally, with its standard UI and default arguments.
-    // This is the original Windows update behavior that worked reliably before the custom wrapper.
-    const child=spawn(file,[],{detached:true,stdio:'ignore',windowsHide:false});
-    child.unref();
-    app.quit();
-    return true;
-  }
-  if(process.platform==='darwin'){
-    const {spawn}=require('child_process'); const targetApp=path.dirname(path.dirname(process.execPath)); const parentDir=path.dirname(targetApp);
-    const shPath=path.join(app.getPath('temp'),`schoology-update-${process.pid}-${Date.now()}.sh`),q=v=>String(v).replace(/'/g,"'\"'\"'");
-    const mount=path.join(app.getPath('temp'),`schoology-dmg-${process.pid}-${Date.now()}`);fs.mkdirSync(mount,{recursive:true});
-    const script=`#!/bin/bash\nset -e\nDMG='${q(file)}'\nTARGET='${q(targetApp)}'\nPARENT='${q(parentDir)}'\nMOUNT='${q(mount)}'\nPID=${process.pid}\nfor i in {1..300}; do kill -0 $PID 2>/dev/null || break; sleep .2; done\nhdiutil attach -nobrowse -readonly -mountpoint "$MOUNT" "$DMG" >/dev/null\nAPP=$(find "$MOUNT" -maxdepth 2 -name '*.app' -type d -print -quit)\nif [ -z "$APP" ]; then hdiutil detach "$MOUNT" >/dev/null; exit 1; fi\nrm -rf "$TARGET"\nditto "$APP" "$TARGET"\nhdiutil detach "$MOUNT" >/dev/null\nopen "$TARGET"\nrm -f "$DMG" "$0"\n`;
-    fs.writeFileSync(shPath,script,{encoding:'utf8',mode:0o755});spawn('/bin/bash',[shPath],{detached:true,stdio:'ignore'}).unref();app.quit();return true;
-  }
-  const r=await shell.openPath(file);if(r)throw new Error(r);return true;
+async function getLatestRepoUpdate(repo,{compareLocal=false}={}){
+  if(!require('electron').net.isOnline())throw new Error('Computer is offline.');
+  const release=await fetchJson(`https://api.github.com/repos/${repo}/releases/latest`);
+  const tag=String(release.tag_name||'');
+  if(release.draft||release.prerelease)throw new Error('The latest release is not available for installation yet.');
+  const asset=updateAssetForPlatform(release);
+  if(!asset)throw new Error('No compatible update package was found for this computer.');
+  const remote=Number((tag.match(/(\d+)$/)||[])[1]||0),local=localReleaseNumber();
+  if(compareLocal&&(!remote||remote<=local))return {checked:true,available:false,version:local};
+  return {checked:true,available:true,version:remote||tag,versionLabel:tag||'latest',tag,assetName:asset.name,url:asset.browser_download_url,size:Number(asset.size||0),digest:asset.digest||null,repo};
+}
+async function checkForUpdates(force=false){
+  const now=Date.now(),st=readUpdateState();
+  if(!force&&st.lastSuccessfulCheck&&now-st.lastSuccessfulCheck<UPDATE_INTERVAL_MS)return {checked:false,available:false};
+  const result=await getLatestRepoUpdate(UPDATE_REPO,{compareLocal:true});
+  writeUpdateState({lastSuccessfulCheck:now,lastRemoteTag:result.tag||''});
+  return result;
+}
+async function checkForClassicUpdate(){
+  return getLatestRepoUpdate(CLASSIC_UPDATE_REPO,{compareLocal:false});
 }
 let updateTimer=null;function scheduleUpdateChecks(){const run=async()=>{try{const result=await checkForUpdates(false);if(result?.available){try{win?.webContents?.send('update-available',result)}catch(e){console.error('Automatic Schoology update notification failed:',e.message)}}if(updateTimer)clearTimeout(updateTimer);updateTimer=setTimeout(run,UPDATE_INTERVAL_MS)}catch(e){console.log('Schoology update check deferred:',e.message);if(updateTimer)clearTimeout(updateTimer);updateTimer=setTimeout(run,UPDATE_RETRY_MS)}};const st=readUpdateState();const due=!st.lastSuccessfulCheck||Date.now()-st.lastSuccessfulCheck>=UPDATE_INTERVAL_MS;setTimeout(()=>{if(due)run();else updateTimer=setTimeout(run,Math.max(1000,UPDATE_INTERVAL_MS-(Date.now()-st.lastSuccessfulCheck)))},8000)}
 
@@ -667,6 +666,7 @@ app.whenReady().then(()=>{
   ipcMain.handle('upload-schoology-file',(_,x)=>uploadSchoologyFile(x));
   ipcMain.handle('update-assignment-grade',(_,x)=>updateAssignmentGrade(x));
   ipcMain.handle('check-for-updates',()=>checkForUpdates(true));
+  ipcMain.handle('check-for-classic-update',()=>checkForClassicUpdate());
   ipcMain.handle('set-window-chrome',(_,x)=>{if(process.platform==='win32'||process.platform==='linux'){try{if(windowChromeOverlayEnabled())win?.setTitleBarOverlay?.({color:String(x?.color||'#002137'),symbolColor:String(x?.symbolColor||'#ffffff'),height:Number(x?.height||56)})}catch{}}return true});
   ipcMain.handle('get-window-chrome-mode',()=>({overlay:windowChromeOverlayEnabled(),platform:process.platform}));
   ipcMain.handle('set-window-chrome-mode',(_,enabled)=>{saveWindowChromeOverlay(!!enabled);app.relaunch();app.exit(0);return true});
