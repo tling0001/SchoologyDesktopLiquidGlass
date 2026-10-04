@@ -1404,3 +1404,39 @@ body.appDialogOpen::before{content:"";position:fixed;inset:0;background:rgba(0,0
 .nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]:focus-visible{outline:2px solid rgba(255,255,255,.8)!important;outline-offset:2px!important;}
 /* Older dashboard rules must not reintroduce the opaque white card/image. */
 .nativeDashboardCourseShell .nativeDashboardCourseImage{display:none!important;}
+
+/* v112: let the supplied LiquidGlass library own its shadow-pad canvas geometry.
+   Its injected canvas intentionally extends 20px beyond the element. */
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]{overflow:visible!important;}
+.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]>canvas,
+.courseAppList>.courseAppRow[data-liquid-glass]>canvas,
+.appDialog[data-liquid-glass]>canvas,
+.appDialogActionGlass>canvas,
+.upcomingList>[data-liquid-glass]>canvas,
+.materialList>[data-liquid-glass]>canvas{
+  left:-20px!important;top:-20px!important;
+  width:calc(100% + 40px)!important;height:calc(100% + 40px)!important;
+  inset:auto!important;z-index:-1!important;opacity:1!important;pointer-events:none!important;
+}
+.appDialogActionGlass .appDialogActionLabel{position:relative!important;z-index:2!important;display:block!important;color:#263238!important;white-space:nowrap!important;line-height:40px!important;}
+
+/* v112: Upcoming and Course Materials use actual supplied LiquidGlass buttons.
+   The sibling surface is the captured scene; each row remains a direct child of
+   the LiquidGlass root, matching the package architecture. */
+.upcomingList[data-liquid-glass-root],.materialList[data-liquid-glass-root]{
+  position:relative!important;isolation:isolate!important;background:transparent!important;overflow:visible!important;
+}
+.upcomingList[data-liquid-glass-root]>.upcomingGlassSurface,
+.materialList[data-liquid-glass-root]>.materialGlassSurface{
+  position:absolute!important;inset:0!important;background:#f5f6f7!important;z-index:0!important;pointer-events:none!important;
+}
+.upcomingList[data-liquid-glass-root]>.upcomingDateHeader{position:relative!important;z-index:1!important;}
+.upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass],
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]{
+  position:relative!important;z-index:1!important;background:transparent!important;border:0!important;border-radius:26px!important;
+  overflow:visible!important;box-shadow:none!important;margin:4px 8px!important;width:calc(100% - 16px)!important;
+}
+.upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass]>:not(canvas),
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>:not(canvas){position:relative!important;z-index:1!important;}
+.upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass]:hover,
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]:hover{background:transparent!important;}
