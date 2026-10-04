@@ -1248,7 +1248,7 @@ html[data-electron-platform="win32"][data-window-controls-overlay="true"] .toolb
    the shell behind it. The overlay supplies only the dimming layer. */
 .appDialogOverlay{background:rgba(0,0,0,.22)!important;pointer-events:none!important;}
 .appDialogOverlay.open{display:block!important;}
-.appDialog[data-liquid-glass]{position:fixed!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;background:transparent!important;border:1px solid rgba(255,255,255,.28)!important;box-shadow:none!important;overflow:hidden!important;z-index:1002!important;color:#263238!important;}
+.appDialog[data-liquid-glass]{position:fixed!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;background:transparent!important;border:1px solid rgba(255,255,255,.28)!important;box-shadow:none!important;overflow:visible!important;z-index:1002!important;color:#263238!important;}
 .appDialog[data-liquid-glass] > canvas{z-index:0!important;opacity:1!important;pointer-events:none!important;}
 .appDialog[data-liquid-glass] > :not(canvas){position:relative!important;z-index:1!important;}
 .appDialog[data-liquid-glass] .appDialogActions button{background:rgba(255,255,255,.20)!important;border:1px solid rgba(255,255,255,.30)!important;border-radius:999px!important;}
@@ -1360,7 +1360,7 @@ body.appDialogOpen::before{content:"";position:fixed;inset:0;background:rgba(0,0
   position:fixed!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;
   width:min(440px,calc(100vw - 48px))!important;min-height:150px!important;max-height:calc(100vh - 48px)!important;
   box-sizing:border-box!important;padding:22px 22px 78px!important;background:transparent!important;border:0!important;
-  border-radius:26px!important;box-shadow:none!important;overflow:hidden!important;z-index:1002!important;color:#263238!important;
+  border-radius:26px!important;box-shadow:none!important;overflow:visible!important;z-index:1002!important;color:#263238!important;
   visibility:hidden!important;opacity:0!important;
 }
 .appDialog[data-liquid-glass].ready{visibility:visible!important;opacity:1!important;}
@@ -1405,18 +1405,16 @@ body.appDialogOpen::before{content:"";position:fixed;inset:0;background:rgba(0,0
 /* Older dashboard rules must not reintroduce the opaque white card/image. */
 .nativeDashboardCourseShell .nativeDashboardCourseImage{display:none!important;}
 
-/* v112: let the supplied LiquidGlass library own its shadow-pad canvas geometry.
-   Its injected canvas intentionally extends 20px beyond the element. */
-.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]{overflow:visible!important;}
+/* v114: keep the supplied LiquidGlass canvas geometry untouched. The library
+   writes the exact -20px/+40px shadow-pad geometry itself. Only stacking is
+   overridden so the shader is visible above the captured scene. */
 .nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]>canvas,
 .courseAppList>.courseAppRow[data-liquid-glass]>canvas,
 .appDialog[data-liquid-glass]>canvas,
 .appDialogActionGlass>canvas,
-.upcomingList>[data-liquid-glass]>canvas,
-.materialList>[data-liquid-glass]>canvas{
-  left:-20px!important;top:-20px!important;
-  width:calc(100% + 40px)!important;height:calc(100% + 40px)!important;
-  inset:auto!important;z-index:-1!important;opacity:1!important;pointer-events:none!important;
+.upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass]>canvas,
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>canvas{
+  z-index:0!important;opacity:1!important;pointer-events:none!important;
 }
 .appDialogActionGlass .appDialogActionLabel{position:relative!important;z-index:2!important;display:block!important;color:#263238!important;white-space:nowrap!important;line-height:40px!important;}
 
@@ -1441,58 +1439,24 @@ body.appDialogOpen::before{content:"";position:fixed;inset:0;background:rgba(0,0
 .upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass]:hover,
 .materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]:hover{background:transparent!important;}
 
-/* v113: final LiquidGlass geometry/stacking fixes. The supplied library already
-   positions its shader canvas with the required 20px shadow pad. Keep that
-   geometry, but make the canvas visible above the host's captured scene and
-   below the host content. */
-.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]>canvas,
-.courseAppList>.courseAppRow[data-liquid-glass]>canvas,
-.upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass]>canvas,
-.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>canvas{
-  z-index:0!important;
-  opacity:1!important;
-  pointer-events:none!important;
-}
-.nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]>:not(canvas),
-.courseAppList>.courseAppRow[data-liquid-glass]>:not(canvas),
-.upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass]>:not(canvas),
-.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>:not(canvas){
-  position:relative!important;
-  z-index:1!important;
-}
+/* v114: no CSS geometry overrides on injected glass canvases.
+   LiquidGlass v1.0.3 owns their exact position and size. */
 .nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass],
 .courseAppList>.courseAppRow[data-liquid-glass],
 .upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass],
 .materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]{
-  margin-left:8px!important;
-  margin-right:8px!important;
-  width:calc(100% - 16px)!important;
   box-sizing:border-box!important;
 }
 .nativeDashboardCourseShell>.nativeDashboardCourse[data-liquid-glass]{
-  left:0!important;
-  right:0!important;
-  margin-left:0!important;
-  margin-right:0!important;
-  width:100%!important;
+  left:0!important;right:0!important;margin-left:0!important;margin-right:0!important;width:100%!important;
 }
-/* The scene belongs to the card shell; the shell itself must not clip the
-   library's shadow-pad canvas. */
+.courseAppList>.courseAppRow[data-liquid-glass],
+.upcomingList[data-liquid-glass-root]>.upcomingAssignment[data-liquid-glass],
+.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]{
+  margin-left:0!important;margin-right:0!important;width:100%!important;
+}
 .nativeDashboardCourseShell{overflow:visible!important;}
 .nativeDashboardCourseScene{border-radius:26px!important;overflow:hidden!important;}
-
-/* Keep material titles/icons left-aligned; only the final chevron is right. */
-.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]{
-  display:grid!important;
-  grid-template-columns:44px minmax(0,1fr) 28px!important;
-  align-items:center!important;
-  text-align:left!important;
-  justify-content:initial!important;
-}
-.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>.materialIcon,
-.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>span:nth-child(2){text-align:left!important;justify-self:start!important;}
-.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>.rowChevron,
-.materialList[data-liquid-glass-root]>.materialRow[data-liquid-glass]>span:last-child{justify-self:end!important;text-align:right!important;}
 
 /* Dialog content/actions: reserve a stable footer and align the detached direct-
    child glass buttons from the dialog's actual screen rect. */
